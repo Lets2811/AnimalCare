@@ -14,6 +14,16 @@ export async function listarUsuarios({ status, role, q, page, pageSize } = {}) {
   return respuesta.data; // { total, page, totalPages, counts, users }
 }
 
+// GET /api/admin/audit?actorId=&petId=&action=&page=
+export async function listarAuditoria({ page, action, petId } = {}) {
+  const params = {};
+  if (page) params.page = page;
+  if (action) params.action = action;
+  if (petId) params.petId = petId;
+  const respuesta = await api.get("/admin/audit", { params });
+  return respuesta.data; // { total, page, totalPages, logs }
+}
+
 // GET /api/admin/metrics: resumen de usuarios, citas, urgencias y calificaciones.
 export async function obtenerMetricas() {
   const respuesta = await api.get("/admin/metrics");

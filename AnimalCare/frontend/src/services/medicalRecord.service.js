@@ -21,12 +21,58 @@ export async function descargarHistoriaPdf(petId, nombreMascota = "mascota") {
   setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
-// Carnet de vacunas: las vacunas anotadas en las consultas vigentes, de la mas reciente a la mas antigua.
+// Carnet de vacunas, de la mas reciente a la mas antigua. Junta las vacunas estructuradas (con proxima dosis
+// y lote) y, para las consultas antiguas que solo tienen el texto libre, ese texto.
 export function carnetDeVacunas(entradas) {
+  const items = [];
+  for (const r of entradas) {
+    if (r.status === "ANNULLED") continue;
+    const estructuradas = r.vaccinations || [];
+    for (const v of estructuradas) {
+      items.push({ id: `v${v.id}`, fecha: v.appliedAt, vacunas: v.name, proxima: v.nextDueAt, lote: v.lot, veterinario: r.vet?.name, orden: r.id });
+    }
+    if (estructuradas.length === 0 && r.vaccines && r.vaccines.trim() !== "") {
+      items.push({ id: r.id, fecha: r.visitDate, vacunas: r.vaccines.trim(), proxima: null, lote: null, veterinario: r.vet?.name, orden: r.id });
+    }
+  }
+  return items.sort((a, b) => b.fecha.localeCompare(a.fecha) || b.orden - a.orden);
+}
+
+// Proximas dosis pendientes (desde hoy), la mas cercana primero. Se repite una vacuna solo en su ultima aplicacion.
+export function proximasDosis(carnet, hoy) {
+  const ultimaPorNombre = new Map();
+  for (const v of carnet) {
+    const clave = v.vacunas.trim().toLowerCase();
+    if (!ultimaPorNombre.has(clave)) ultimaPorNombre.set(clave, v); // el carnet viene de lo mas reciente a lo mas antiguo
+  }
+  return [...ultimaPorNombre.values()].filter((v) => v.proxima && v.proxima >= hoy).sort((a, b) => a.proxima.localeCompare(b.proxima));
+}
+
+// Peso en cada consulta (de la mas antigua a la mas reciente), para el grafico de evolucion.
+export function pesosDeLaHistoria(entradas) {
   return entradas
-    .filter((r) => r.status !== "ANNULLED" && r.vaccines && r.vaccines.trim() !== "")
-    .map((r) => ({ id: r.id, fecha: r.visitDate, vacunas: r.vaccines.trim(), veterinario: r.vet?.name }))
-    .sort((a, b) => b.fecha.localeCompare(a.fecha) || b.id - a.id);
+    .filter((r) => r.status !== "ANNULLED" && r.weight !== null && r.weight !== undefined)
+    .map((r) => ({ fecha: r.visitDate, peso: r.weight, id: r.id }))
+    .sort((a, b) => a.fecha.localeCompare(b.fecha) || a.id - b.id);
+}
+
+// Descarga la receta de una consulta (PDF). Se pide con el token porque la ruta es privada.
+export async function descargarRecetaPdf(recordId) {
+  const respuesta = await api.get(`/medical-records/${recordId}/prescription.pdf`, { responseType: "blob" });
+  const url = URL.createObjectURL(respuesta.data);
+  const enlace = document.createElement("a");
+  enlace.href = url;
+  enlace.download = `receta-${recordId}.pdf`;
+  document.body.appendChild(enlace);
+  enlace.click();
+  enlace.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
+// Quien consulto, descargo o cambio la historia de la mascota (solo el dueño).
+export async function obtenerAccesos(petId) {
+  const respuesta = await api.get(`/medical-records/pets/${petId}/accesses`);
+  return respuesta.data.accesses;
 }
 
 export async function crearEntrada(entrada) {

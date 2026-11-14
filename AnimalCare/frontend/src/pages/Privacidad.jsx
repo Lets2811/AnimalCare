@@ -20,7 +20,7 @@ function Privacidad() {
       <main className="contenedor contenedor-medio documento">
         <div className="tarjeta">
           <h1>Política de privacidad y tratamiento de datos</h1>
-          <p className="texto-suave">Última actualización: noviembre de 2026. Proyecto académico de AnimalCare.</p>
+          <p className="texto-suave">Versión 2026-11-14. Proyecto de AnimalCare.</p>
 
           <h3>1. Responsable del tratamiento</h3>
           <p>
@@ -33,8 +33,8 @@ function Privacidad() {
           <ul>
             <li><strong>Cuenta:</strong> nombre, correo electrónico y contraseña (guardada cifrada).</li>
             <li><strong>Veterinarios:</strong> matrícula profesional, especialidad, teléfono, dirección del consultorio, presentación, foto y el documento de la tarjeta profesional.</li>
-            <li><strong>Mascotas:</strong> nombre, especie, sexo, fecha de nacimiento y peso.</li>
-            <li><strong>Citas e historias clínicas:</strong> fechas, servicios, direcciones de atención a domicilio, motivos de consulta, diagnósticos y tratamientos.</li>
+            <li><strong>Mascotas:</strong> nombre, especie, sexo, fecha de nacimiento, peso y, si quieres, raza, color, microchip, esterilización y alergias.</li>
+            <li><strong>Citas e historias clínicas:</strong> fechas, servicios, direcciones de atención a domicilio, motivos de consulta, diagnósticos, tratamientos, vacunas, recetas, exámenes adjuntos y controles de seguimiento. Son datos de salud de la mascota asociados a tu identidad.</li>
             <li><strong>Reseñas y notificaciones</strong> generadas por el uso de la plataforma.</li>
           </ul>
 
@@ -43,8 +43,12 @@ function Privacidad() {
             <li>Conectar a dueños de mascotas con veterinarios y gestionar las citas.</li>
             <li>Verificar que los veterinarios tengan una matrícula válida (solo el administrador ve la tarjeta profesional).</li>
             <li>Enviar avisos sobre tus citas, tu cuenta y recordatorios.</li>
-            <li>Llevar la historia clínica de tus mascotas.</li>
+            <li>Llevar la historia clínica de tus mascotas y avisarte de vacunas y controles próximos.</li>
           </ul>
+          <p>
+            Tratamos tus datos con tu autorización previa, expresa e informada, que das al registrarte aceptando esta
+            política. Puedes revocarla eliminando tu cuenta.
+          </p>
 
           <h3>4. Con quién se comparten</h3>
           <p>
@@ -60,11 +64,20 @@ function Privacidad() {
             cuenta. Al eliminarla, tus datos personales se anonimizan; las citas pasadas y las historias clínicas se
             conservan como registro de la atención, sin identificarte.
           </p>
+          <ul>
+            <li><strong>Conocer y acceder:</strong> en Mi cuenta puedes <em>descargar todos tus datos</em> en un archivo.</li>
+            <li><strong>Saber quién consultó la historia de tu mascota:</strong> en su historia clínica hay un registro de los profesionales que la abrieron, descargaron o modificaron.</li>
+            <li><strong>Reclamos:</strong> escribe al administrador; el plazo de respuesta es de 15 días hábiles.</li>
+          </ul>
 
           <h3>6. Seguridad y conservación</h3>
           <p>
             Las contraseñas se guardan con cifrado irreversible, el acceso se protege con sesiones firmadas y se
-            limitan los intentos de inicio de sesión. Los datos se conservan mientras la cuenta esté activa.
+            limitan los intentos de inicio de sesión. Los archivos médicos (exámenes, radiografías) son privados: solo se
+            entregan a quien tiene permiso. Cada consulta o descarga de una historia clínica queda en un registro de
+            auditoría. Los datos se conservan mientras la cuenta esté activa; las notificaciones leídas y los
+            códigos de verificación vencidos se depuran periódicamente. Las historias clínicas se conservan como
+            registro de la atención veterinaria.
           </p>
 
           <h3>7. Contacto</h3>

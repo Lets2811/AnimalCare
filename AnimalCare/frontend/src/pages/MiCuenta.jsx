@@ -11,6 +11,7 @@ import {
   actualizarCuenta,
   cambiarContrasena,
   eliminarCuenta,
+  exportarMisDatos,
   reenviarVerificacion,
   contrasenaValida,
   MENSAJE_CONTRASENA,
@@ -120,6 +121,27 @@ function MiCuenta() {
               </button>
             </>
           )}
+        </div>
+
+        <div className="tarjeta">
+          <h3>Mis datos y privacidad</h3>
+          <p className="texto-suave">
+            {usuario?.privacyAcceptedAt
+              ? `Aceptaste la política de privacidad (versión ${usuario.privacyVersion || "inicial"}) el ${new Date(usuario.privacyAcceptedAt).toLocaleDateString("es-CO", { dateStyle: "long", timeZone: "America/Bogota" })}. `
+              : "Aceptaste la política de privacidad al registrarte. "}
+            <Link to="/privacidad">Leer la política</Link>
+          </p>
+          <p className="texto-suave">
+            Tienes derecho a conocer qué datos tenemos de ti. Descarga una copia con tu cuenta, tus mascotas, tus
+            citas, las historias clínicas y tus notificaciones.
+          </p>
+          <button
+            type="button"
+            className="boton boton-secundario boton-auto"
+            onClick={() => exportarMisDatos().catch((error) => setErrores(obtenerMensajesDeError(error)))}
+          >
+            Descargar mis datos (JSON)
+          </button>
         </div>
 
         <form className="tarjeta" onSubmit={guardarNombre} noValidate>

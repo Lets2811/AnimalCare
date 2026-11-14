@@ -1661,3 +1661,92 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* ---------- Ficha clinica de la mascota ---------- */
+
+.ficha-clinica {
+  margin: 12px 0;
+  padding: 12px 14px;
+  border: 1px dashed var(--borde);
+  border-radius: var(--radio);
+}
+
+.ficha-clinica legend {
+  padding: 0 6px;
+  font-size: 0.85rem;
+  color: var(--texto-suave);
+}
+
+.alerta-alergias {
+  margin: 8px 0 0;
+  padding: 8px 10px;
+  font-size: 0.9rem;
+  color: var(--aviso-texto);
+  background-color: var(--aviso-fondo);
+  border: 1px solid var(--aviso-borde);
+  border-radius: var(--radio);
+}
+
+/* ---------- Historia: editores de vacunas y recetas, grafico de peso, accesos ---------- */
+
+.editor-lista {
+  margin: 12px 0;
+  padding: 12px 14px;
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+}
+
+.editor-lista legend {
+  padding: 0 6px;
+  font-weight: 600;
+}
+
+.editor-fila {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px 12px;
+  align-items: end;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--borde);
+}
+
+.editor-fila-receta .campo-ancho {
+  grid-column: 1 / -1;
+}
+
+.vacunas-proximas {
+  margin-bottom: 12px;
+  padding: 10px 12px;
+  background-color: var(--verde-50);
+  border: 1px solid var(--verde-200);
+  border-radius: var(--radio);
+}
+
+.vacunas-proximas ul {
+  margin: 6px 0 0;
+  padding-left: 18px;
+}
+
+.grafico-peso-svg {
+  width: 100%;
+  height: auto;
+  max-height: 220px;
+  color: var(--texto-suave);
+}
+
+.accesos {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.accesos li {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--borde);
+}
+
+.entrada-recetas,
+.entrada-vacunas {
+  margin: 4px 0 0;
+  padding-left: 18px;
+}

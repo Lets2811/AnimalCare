@@ -21,6 +21,19 @@ export async function reenviarVerificacion() {
   return respuesta.data;
 }
 
+// Derecho de acceso (habeas data): descarga todos mis datos en un archivo JSON.
+export async function exportarMisDatos() {
+  const respuesta = await api.get("/account/export", { responseType: "blob" });
+  const url = URL.createObjectURL(respuesta.data);
+  const enlace = document.createElement("a");
+  enlace.href = url;
+  enlace.download = "animalcare-mis-datos.json";
+  document.body.appendChild(enlace);
+  enlace.click();
+  enlace.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
 export async function actualizarCuenta(datos) {
   const respuesta = await api.put("/account", datos);
   return respuesta.data;

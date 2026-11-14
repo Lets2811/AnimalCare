@@ -108,6 +108,9 @@ function Cabecera() {
                 <NavLink to="/admin/metricas" className="cabecera-enlace">
                   Métricas
                 </NavLink>
+                <NavLink to="/admin/auditoria" className="cabecera-enlace">
+                  Auditoría
+                </NavLink>
               </>
             )}
           </nav>

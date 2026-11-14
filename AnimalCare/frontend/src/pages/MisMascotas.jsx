@@ -20,7 +20,31 @@ import {
 import { hoyLocal } from "../services/appointment.service";
 import { obtenerMensajesDeError, esErrorDeConexion } from "../services/api";
 
-const VACIA = { name: "", species: "Perro", sex: "Macho", birthDate: "", weight: "" };
+const VACIA = {
+  name: "",
+  species: "Perro",
+  sex: "Macho",
+  birthDate: "",
+  weight: "",
+  breed: "",
+  color: "",
+  microchip: "",
+  sterilized: "",
+  allergies: "",
+};
+
+// De la mascota guardada al formulario (los nulos pasan a texto vacio).
+function aFormulario(m) {
+  return {
+    ...m,
+    weight: m.weight === null ? "" : String(m.weight),
+    breed: m.breed ?? "",
+    color: m.color ?? "",
+    microchip: m.microchip ?? "",
+    sterilized: m.sterilized === null || m.sterilized === undefined ? "" : String(m.sterilized),
+    allergies: m.allergies ?? "",
+  };
+}
 
 function FormularioMascota({ inicial, textoBoton, onGuardar, onCancelar }) {
   const [datos, setDatos] = useState(inicial);
@@ -29,7 +53,8 @@ function FormularioMascota({ inicial, textoBoton, onGuardar, onCancelar }) {
 
   function cambiar(e) {
     const { name, value } = e.target;
-    setDatos((a) => ({ ...a, [name]: name === "weight" ? value.replace(/[^0-9.]/g, "") : value }));
+    const limpio = name === "weight" ? value.replace(/[^0-9.]/g, "") : name === "microchip" ? value.replace(/\D/g, "") : value;
+    setDatos((a) => ({ ...a, [name]: limpio }));
   }
 
   async function enviar(e) {
@@ -37,6 +62,7 @@ function FormularioMascota({ inicial, textoBoton, onGuardar, onCancelar }) {
     const mensajes = [];
     if (datos.name.trim() === "") mensajes.push("El nombre de la mascota es obligatorio.");
     if (!datos.birthDate) mensajes.push("La fecha de nacimiento es obligatoria (puede ser aproximada).");
+    if (datos.microchip !== "" && !/^\d{9,15}$/.test(datos.microchip)) mensajes.push("El microchip debe tener entre 9 y 15 dígitos.");
     if (mensajes.length > 0) {
       setErrores(mensajes);
       return;
@@ -44,7 +70,12 @@ function FormularioMascota({ inicial, textoBoton, onGuardar, onCancelar }) {
     setErrores([]);
     setGuardando(true);
     try {
-      await onGuardar({ ...datos, name: datos.name.trim(), weight: datos.weight || null });
+      await onGuardar({
+        ...datos,
+        name: datos.name.trim(),
+        weight: datos.weight || null,
+        sterilized: datos.sterilized === "" ? null : datos.sterilized === "true",
+      });
     } catch (error) {
       setErrores(obtenerMensajesDeError(error));
     } finally {
@@ -98,6 +129,39 @@ function FormularioMascota({ inicial, textoBoton, onGuardar, onCancelar }) {
           <input id={id("peso")} name="weight" inputMode="decimal" value={datos.weight} onChange={cambiar} placeholder="4.5" />
         </div>
       </div>
+
+      <fieldset className="ficha-clinica">
+        <legend>Ficha clínica (opcional, la ve el veterinario)</legend>
+        <div className="fila">
+          <div className="campo">
+            <label htmlFor={id("raza")}>Raza</label>
+            <input id={id("raza")} name="breed" maxLength={40} value={datos.breed} onChange={cambiar} placeholder="Criollo" />
+          </div>
+          <div className="campo">
+            <label htmlFor={id("color")}>Color</label>
+            <input id={id("color")} name="color" maxLength={40} value={datos.color} onChange={cambiar} placeholder="Blanco con manchas" />
+          </div>
+        </div>
+        <div className="fila">
+          <div className="campo">
+            <label htmlFor={id("microchip")}>Microchip</label>
+            <input id={id("microchip")} name="microchip" inputMode="numeric" maxLength={15} value={datos.microchip} onChange={cambiar} placeholder="9 a 15 dígitos" />
+          </div>
+          <div className="campo">
+            <label htmlFor={id("esterilizado")}>Esterilizado</label>
+            <Selector id={id("esterilizado")} name="sterilized" value={datos.sterilized} onChange={cambiar}>
+              <option value="">Sin indicar</option>
+              <option value="true">Sí</option>
+              <option value="false">No</option>
+            </Selector>
+          </div>
+        </div>
+        <div className="campo">
+          <label htmlFor={id("alergias")}>Alergias o condiciones</label>
+          <textarea id={id("alergias")} name="allergies" rows={2} maxLength={500} value={datos.allergies} onChange={cambiar} placeholder="Penicilina, pollo..." />
+        </div>
+      </fieldset>
+
       <div className="acciones-linea">
         <button type="submit" className="boton boton-primario boton-auto" disabled={guardando}>
           {guardando ? "Guardando..." : textoBoton}
@@ -223,7 +287,7 @@ function MisMascotas() {
             <article key={m.id} className="tarjeta mascota mascota-ficha">
               {editando === m.id ? (
                 <FormularioMascota
-                  inicial={{ ...m, weight: m.weight === null ? "" : String(m.weight) }}
+                  inicial={aFormulario(m)}
                   textoBoton="Guardar cambios"
                   onGuardar={(datos) => edicion(m.id, datos)}
                   onCancelar={() => setEditando(null)}
@@ -244,7 +308,16 @@ function MisMascotas() {
                     <li>{m.sex}</li>
                     <li>{calcularEdad(m.birthDate)}</li>
                     {m.weight !== null && <li>{m.weight} kg</li>}
+                    {m.breed && <li>{m.breed}</li>}
+                    {m.color && <li>{m.color}</li>}
+                    {m.sterilized !== null && m.sterilized !== undefined && <li>{m.sterilized ? "Esterilizado" : "Sin esterilizar"}</li>}
+                    {m.microchip && <li>Microchip {m.microchip}</li>}
                   </ul>
+                  {m.allergies && (
+                    <p className="alerta-alergias" role="note">
+                      <strong>Alergias:</strong> {m.allergies}
+                    </p>
+                  )}
 
                   {quitando === m.id ? (
                     <div className="mascota-confirmar" role="alertdialog" aria-label={`Quitar a ${m.name}`}>

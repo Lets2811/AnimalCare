@@ -18,9 +18,14 @@ import {
   modificarEntrada,
   eliminarEntrada,
   descargarHistoriaPdf,
-  carnetDeVacunas,
+  descargarRecetaPdf,
 } from "../services/medicalRecord.service";
 import IconoEspecie from "../components/IconoEspecie";
+import EditorVacunas from "../components/historia/EditorVacunas";
+import EditorRecetas from "../components/historia/EditorRecetas";
+import GraficoPeso from "../components/historia/GraficoPeso";
+import CarnetVacunas from "../components/historia/CarnetVacunas";
+import AccesosHistoria from "../components/historia/AccesosHistoria";
 import { calcularEdad } from "../services/pet.service";
 import { formatearFecha, hoyLocal, completarCita } from "../services/appointment.service";
 import { obtenerMensajesDeError, esErrorDeConexion } from "../services/api";
@@ -35,7 +40,45 @@ const VACIA = {
   temperature: "",
   vaccines: "",
   observations: "",
+  followUpDate: "",
+  vaccinations: [],
+  prescriptions: [],
 };
+
+// De una entrada guardada a los campos clinicos del formulario (vacunas, receta y proximo control).
+function camposClinicos(r) {
+  return {
+    followUpDate: r.followUpDate || "",
+    vaccinations: (r.vaccinations || []).map((v) => ({ name: v.name, nextDueAt: v.nextDueAt || "", lot: v.lot || "" })),
+    prescriptions: (r.prescriptions || []).map((p) => ({
+      medication: p.medication,
+      dose: p.dose,
+      frequency: p.frequency,
+      duration: p.duration || "",
+      instructions: p.instructions || "",
+    })),
+  };
+}
+
+// Del formulario a lo que recibe la API: se descartan las filas vacias y los textos vacios pasan a null.
+function aPeticion(datos) {
+  return {
+    ...datos,
+    followUpDate: datos.followUpDate || null,
+    vaccinations: datos.vaccinations
+      .filter((v) => v.name.trim() !== "")
+      .map((v) => ({ name: v.name.trim(), nextDueAt: v.nextDueAt || null, lot: v.lot.trim() || null })),
+    prescriptions: datos.prescriptions
+      .filter((r) => r.medication.trim() !== "")
+      .map((r) => ({
+        medication: r.medication.trim(),
+        dose: r.dose.trim(),
+        frequency: r.frequency.trim(),
+        duration: r.duration.trim() || null,
+        instructions: r.instructions.trim() || null,
+      })),
+  };
+}
 
 // atencion: si se pasa, el formulario es el de una atencion en curso ({ recordId }) y termina con
 // "Guardar avance", "Guardar y terminar atencion" o "Terminar sin registrar".
@@ -79,6 +122,16 @@ function FormularioEntrada({ inicial, citasPendientes = [], textoBoton, onGuarda
     if (citasPendientes.length > 0 && !datos.appointmentId) mensajes.push("Elige la cita a la que pertenece la entrada.");
     if (datos.reason.trim() === "") mensajes.push("El motivo de consulta es obligatorio.");
     if (datos.diagnosis.trim() === "") mensajes.push("El diagnóstico es obligatorio.");
+    datos.vaccinations.forEach((v, i) => {
+      if (v.name.trim() === "" && (v.nextDueAt || v.lot.trim())) mensajes.push(`Escribe el nombre de la vacuna ${i + 1} o quítala.`);
+    });
+    datos.prescriptions.forEach((r, i) => {
+      const hayDatos = r.dose.trim() || r.frequency.trim() || r.duration.trim() || r.instructions.trim();
+      if (r.medication.trim() === "" && hayDatos) mensajes.push(`Escribe el nombre del medicamento ${i + 1} o quítalo.`);
+      if (r.medication.trim() !== "" && (r.dose.trim() === "" || r.frequency.trim() === "")) {
+        mensajes.push(`El medicamento ${i + 1} necesita dosis y frecuencia.`);
+      }
+    });
     if (mensajes.length > 0) {
       setErrores(mensajes);
       return;
@@ -86,7 +139,7 @@ function FormularioEntrada({ inicial, citasPendientes = [], textoBoton, onGuarda
     setErrores([]);
     setGuardando(true);
     try {
-      await onGuardar(datos, accion);
+      await onGuardar(aPeticion(datos), accion);
     } catch (error) {
       setErrores(obtenerMensajesDeError(error));
     } finally {
@@ -149,9 +202,18 @@ function FormularioEntrada({ inicial, citasPendientes = [], textoBoton, onGuarda
           <input id="temperature" name="temperature" inputMode="decimal" value={datos.temperature} onChange={cambiar} placeholder="38.5" />
         </div>
         <div className="campo">
-          <label htmlFor="vaccines">Vacunas aplicadas</label>
+          <label htmlFor="vaccines">Notas de vacunación (texto libre)</label>
           <input id="vaccines" name="vaccines" maxLength={2000} value={datos.vaccines} onChange={cambiar} placeholder="Rabia, triple felina..." />
         </div>
+      </div>
+
+      <EditorVacunas valor={datos.vaccinations} onChange={(vaccinations) => setDatos((a) => ({ ...a, vaccinations }))} />
+      <EditorRecetas valor={datos.prescriptions} onChange={(prescriptions) => setDatos((a) => ({ ...a, prescriptions }))} />
+
+      <div className="campo">
+        <label htmlFor="followUpDate">Próximo control sugerido</label>
+        <input id="followUpDate" type="date" name="followUpDate" min={hoyLocal()} value={datos.followUpDate} onChange={cambiar} />
+        <span className="ayuda">El dueño recibe un aviso 3 días antes.</span>
       </div>
 
       <div className="campo">
@@ -280,6 +342,47 @@ function Entrada({ entrada, esVeterinario, onEditar, onEliminar, onCambio }) {
           <div>
             <dt>Vacunas</dt>
             <dd>{entrada.vaccines}</dd>
+          </div>
+        )}
+        {entrada.vaccinations?.length > 0 && (
+          <div className="entrada-dato-ancho">
+            <dt>Vacunas aplicadas</dt>
+            <dd>
+              <ul className="entrada-vacunas">
+                {entrada.vaccinations.map((v) => (
+                  <li key={v.id}>
+                    {v.name}
+                    {v.lot ? ` (lote ${v.lot})` : ""}
+                    {v.nextDueAt ? ` · próxima dosis: ${formatearFecha(v.nextDueAt)}` : ""}
+                  </li>
+                ))}
+              </ul>
+            </dd>
+          </div>
+        )}
+        {entrada.prescriptions?.length > 0 && (
+          <div className="entrada-dato-ancho">
+            <dt>Receta</dt>
+            <dd>
+              <ul className="entrada-recetas">
+                {entrada.prescriptions.map((p) => (
+                  <li key={p.id}>
+                    <strong>{p.medication}</strong>: {p.dose}, {p.frequency}
+                    {p.duration ? `, durante ${p.duration}` : ""}
+                    {p.instructions ? `. ${p.instructions}` : ""}
+                  </li>
+                ))}
+              </ul>
+              <button type="button" className="boton boton-secundario boton-auto no-imprimir" onClick={() => descargarRecetaPdf(entrada.id).catch((e) => setError(obtenerMensajesDeError(e).join(" ")))}>
+                Descargar receta (PDF)
+              </button>
+            </dd>
+          </div>
+        )}
+        {entrada.followUpDate && (
+          <div>
+            <dt>Próximo control</dt>
+            <dd>{formatearFecha(entrada.followUpDate)}</dd>
           </div>
         )}
         {entrada.observations && (
@@ -414,7 +517,6 @@ function HistoriaClinica() {
 
   const pet = historia?.pet;
   const vigentes = historia ? historia.records.filter((r) => r.status !== "ANNULLED") : [];
-  const vacunas = historia ? carnetDeVacunas(historia.records) : [];
   const anuladas = historia ? historia.records.filter((r) => r.status === "ANNULLED") : [];
   const citaInicial = parametros.get("cita");
   const citaElegida = historia?.pendingAppointments?.find((c) => String(c.id) === citaInicial);
@@ -456,7 +558,16 @@ function HistoriaClinica() {
                       <li>{pet.sex}</li>
                       <li>{calcularEdad(pet.birthDate)}</li>
                       {pet.weight !== null && <li>{pet.weight} kg</li>}
+                      {pet.breed && <li>{pet.breed}</li>}
+                      {pet.color && <li>{pet.color}</li>}
+                      {pet.sterilized !== null && pet.sterilized !== undefined && <li>{pet.sterilized ? "Esterilizado" : "Sin esterilizar"}</li>}
+                      {pet.microchip && <li>Microchip {pet.microchip}</li>}
                     </ul>
+                    {pet.allergies && (
+                      <p className="alerta-alergias" role="note">
+                        <strong>Alergias:</strong> {pet.allergies}
+                      </p>
+                    )}
                     {pet.owner && <p className="texto-suave historia-dueno">Dueño: {pet.owner.name}</p>}
                   </div>
                 </div>
@@ -525,6 +636,7 @@ function HistoriaClinica() {
                           temperature: registroAtencion.temperature !== null ? String(registroAtencion.temperature) : "",
                           vaccines: registroAtencion.vaccines || "",
                           observations: registroAtencion.observations || "",
+                          ...camposClinicos(registroAtencion),
                         }
                       : {
                           ...VACIA,
@@ -572,6 +684,7 @@ function HistoriaClinica() {
                     temperature: formulario.temperature !== null ? String(formulario.temperature) : "",
                     vaccines: formulario.vaccines || "",
                     observations: formulario.observations || "",
+                    ...camposClinicos(formulario),
                   }}
                   textoBoton="Guardar cambios"
                   onGuardar={(datos) => guardarEdicion(formulario.id, datos)}
@@ -580,20 +693,8 @@ function HistoriaClinica() {
               </div>
             )}
 
-            {vacunas.length > 0 && (
-              <div className="tarjeta">
-                <h3>Carnet de vacunas</h3>
-                <ul className="vacunas">
-                  {vacunas.map((v) => (
-                    <li key={v.id}>
-                      <strong>{formatearFecha(v.fecha)}</strong>
-                      <span>{v.vacunas}</span>
-                      {v.veterinario && <span className="texto-suave">{v.veterinario}</span>}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
+            <CarnetVacunas entradas={historia.records} />
+            <GraficoPeso entradas={historia.records} />
 
             <div className="tarjeta">
               <h3>Consultas ({vigentes.length})</h3>
@@ -629,6 +730,8 @@ function HistoriaClinica() {
                 </ul>
               )}
             </div>
+
+            {!esVeterinario && <AccesosHistoria petId={id} />}
 
             {esVeterinario && anuladas.length > 0 && (
               <div className="tarjeta no-imprimir">

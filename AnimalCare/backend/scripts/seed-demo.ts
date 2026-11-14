@@ -94,7 +94,20 @@ async function crearVeterinario(datos: DatosVeterinario, hash: string) {
   return perfil;
 }
 
-async function crearMascota(userId: number, datos: { name: string; species: string; sex: string; birthDate: Date; weight: number }) {
+interface DatosMascota {
+  name: string;
+  species: string;
+  sex: string;
+  birthDate: Date;
+  weight: number;
+  breed?: string;
+  color?: string;
+  microchip?: string;
+  sterilized?: boolean;
+  allergies?: string;
+}
+
+async function crearMascota(userId: number, datos: DatosMascota) {
   const ya = await prisma.pet.findFirst({ where: { userId, name: datos.name } });
   if (ya) return ya;
   return prisma.pet.create({ data: { ...datos, userId } });
@@ -174,7 +187,18 @@ async function main() {
     hash
   );
 
-  const luna = await crearMascota(cliente.id, { name: "Luna", species: "Perro", sex: "Hembra", birthDate: new Date("2022-04-10"), weight: 12.5 });
+  const luna = await crearMascota(cliente.id, {
+    name: "Luna",
+    species: "Perro",
+    sex: "Hembra",
+    birthDate: new Date("2022-04-10"),
+    weight: 12.5,
+    breed: "Labrador",
+    color: "Dorado",
+    microchip: "985112345678901",
+    sterilized: true,
+    allergies: "Penicilina",
+  });
   await crearMascota(cliente.id, { name: "Michi", species: "Gato", sex: "Macho", birthDate: new Date("2021-08-20"), weight: 4.2 });
   await crearMascota(cliente2.id, { name: "Rocky", species: "Perro", sex: "Macho", birthDate: new Date("2020-01-15"), weight: 18 });
 
@@ -202,6 +226,14 @@ async function main() {
         weight: 12.5,
         temperature: 38.6,
         vaccines: "Triple canina (refuerzo)",
+        // Control de seguimiento, vacuna con proxima dosis y receta (para ver los recordatorios y el PDF).
+        followUpDate: addDays(startOfDay(), 14),
+        vaccinations: {
+          create: [{ name: "Rabia", appliedAt: startOfDay(atendida.scheduledAt), nextDueAt: addDays(startOfDay(), 20), lot: "RB-2026-07", petId: luna.id, vetProfileId: vet!.id }],
+        },
+        prescriptions: {
+          create: [{ medication: "Omeprazol", dose: "10 mg", frequency: "cada 24 horas", duration: "5 días", instructions: "En ayunas" }],
+        },
       },
     });
     await prisma.review.create({
