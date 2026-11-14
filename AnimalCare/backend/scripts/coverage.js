@@ -14,10 +14,12 @@ fs.mkdirSync("coverage", { recursive: true });
 const resultado = spawnSync(
   process.execPath,
   [
+    "--import",
+    "tsx",
     "--test",
     "--test-concurrency=1",
     "--experimental-test-coverage",
-    "--test-coverage-include=src/**/*.js",
+    "--test-coverage-include=src/**/*.ts",
     "--test-reporter=spec",
     "--test-reporter-destination=stdout",
     "--test-reporter=lcov",

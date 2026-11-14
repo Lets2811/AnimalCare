@@ -11,20 +11,31 @@
     "swagger-ui-dist": "^5.35.0"
   },
   "devDependencies": {
-    "prisma": "^6.19.3"
+    "@types/bcrypt": "^6.0.0",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^26.6.6",
+    "@types/nodemailer": "^8.0.2",
+    "@types/pdfkit": "^0.17.7",
+    "prisma": "^6.19.3",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2"
   },
   "name": "animalcare-backend",
   "version": "1.0.0",
-  "main": "server.js",
+  "main": "dist/server.js",
   "scripts": {
-    "dev": "node --watch server.js",
-    "start": "node server.js",
-    "create-admin": "node scripts/create-admin.js",
-    "seed": "node scripts/seed-demo.js",
+    "dev": "tsx watch server.ts",
+    "build": "tsc -p tsconfig.build.json",
+    "start": "node dist/server.js",
+    "typecheck": "tsc --noEmit -p .",
+    "create-admin": "tsx scripts/create-admin.ts",
+    "seed": "tsx scripts/seed-demo.ts",
     "coverage": "node scripts/coverage.js",
-    "matriz": "node scripts/generar-matriz.js",
-    "openapi": "node scripts/generar-openapi.js",
-    "test": "node --test \"tests/**/*.test.js\""
+    "matriz": "tsx scripts/generar-matriz.js",
+    "openapi": "tsx scripts/generar-openapi.js",
+    "test": "node --import tsx --test \"tests/**/*.test.js\""
   },
   "keywords": [],
   "author": "",

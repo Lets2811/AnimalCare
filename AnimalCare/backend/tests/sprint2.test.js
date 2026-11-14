@@ -19,7 +19,7 @@ const { describe, test, before, after } = require("node:test");
 const assert = require("node:assert/strict");
 const bcrypt = require("bcrypt");
 
-const prisma = require("../src/prisma");
+const prisma = require("../src/prisma").default;
 const uploads = require("../src/utils/uploads");
 const { runReminders } = require("../src/services/reminder.service");
 const { toDateString, localWeekday, toTimeOfDay, parseTime } = require("../src/utils/schedule");
@@ -111,7 +111,7 @@ before(async () => {
     process.env.JWT_SECRET = process.env.JWT_SECRET || "secreto-de-pruebas";
     process.env.CORS_ORIGIN = process.env.CORS_ORIGIN || "http://localhost:5173";
     servidorEnProceso = await new Promise((resolver) => {
-      const servidor = require("../src/app").listen(PUERTO_PRUEBA, () => resolver(servidor));
+      const servidor = require("../src/app").default.listen(PUERTO_PRUEBA, () => resolver(servidor));
     });
   }
 

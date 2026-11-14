@@ -11,9 +11,9 @@ const RAIZ = path.join(__dirname, "..");
 
 // Rutas reales: por cada archivo de rutas, el prefijo con que app.js lo monta.
 function rutasReales() {
-  const app = fs.readFileSync(path.join(RAIZ, "src/app.js"), "utf8");
+  const app = fs.readFileSync(path.join(RAIZ, "src/app.ts"), "utf8");
   const archivoDe = Object.fromEntries(
-    [...app.matchAll(/const (\w+) = require\("\.\/routes\/([\w.]+)"\);/g)].map((m) => [m[1], m[2]])
+    [...app.matchAll(/import (\w+) from "\.\/routes\/([\w.]+)";/g)].map((m) => [m[1], m[2]])
   );
   const prefijos = {};
   for (const m of app.matchAll(/app\.use\("(\/api[^"]*)", (\w+)\);/g)) prefijos[archivoDe[m[2]]] = m[1];
@@ -23,7 +23,7 @@ function rutasReales() {
   const rutas = new Set();
   for (const [archivo, prefijo] of Object.entries(prefijos)) {
     if (archivo === "docs.routes") continue; // la propia documentacion no se documenta
-    const texto = fs.readFileSync(path.join(RAIZ, "src/routes", `${archivo}.js`), "utf8");
+    const texto = fs.readFileSync(path.join(RAIZ, "src/routes", `${archivo}.ts`), "utf8");
     for (const m of texto.matchAll(/router\.(get|post|put|patch|delete)\("([^"]*)"/g)) {
       const ruta = `${prefijo}${m[2] === "/" ? "" : m[2]}`.replace(/^\/api/, "").replace(/:(\w+)/g, "{$1}");
       rutas.add(`${m[1]} ${ruta === "" ? "/" : ruta}`);

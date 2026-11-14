@@ -12,7 +12,9 @@ const requerir = createRequire(path.join(backend, "package.json"));
 
 // En local la base se configura en backend/.env; en CI ya viene en el entorno.
 requerir("dotenv").config({ path: path.join(backend, ".env"), quiet: true });
-export const prisma = requerir("./src/prisma");
+// El backend esta en TypeScript: tsx/cjs permite cargarlo desde Node sin compilar.
+requerir("tsx/cjs");
+export const prisma = requerir("./src/prisma").default;
 
 export const API = process.env.E2E_API_URL || "http://localhost:4000/api";
 export const CLAVE = "Prueba123";

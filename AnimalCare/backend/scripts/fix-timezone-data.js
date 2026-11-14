@@ -12,7 +12,7 @@
 // leida del primer administrador) y se niega a correr de nuevo si la encuentra.
 require("dotenv").config();
 
-const prisma = require("../src/prisma");
+const prisma = require("../src/prisma").default;
 const { CLINIC_TIMEZONE, toTimeOfDay, combine } = require("../src/utils/schedule");
 
 const APLICAR = process.argv.includes("--aplicar");
