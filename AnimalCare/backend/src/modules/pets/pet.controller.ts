@@ -6,12 +6,15 @@ import type { Request, Response } from "express";
 import prisma from "../../prisma";
 import { parseId } from "../../utils/params";
 import { parseDate, toDateString } from "../../utils/schedule";
+import { esErrorPrisma } from "../../utils/errores";
 
 const ESPECIES = ["Perro", "Gato", "Ave", "Conejo", "Roedor", "Reptil", "Otro"];
 const SEXOS = ["Macho", "Hembra"];
 const MAX_NAME = 40;
 const MAX_AGE_YEARS = 40;
 const MAX_WEIGHT = 200;
+const MAX_TEXT = 40;
+const MAX_ALLERGIES = 500;
 
 function toPublicPet(pet: any) {
   return {
@@ -21,7 +24,45 @@ function toPublicPet(pet: any) {
     sex: pet.sex,
     birthDate: toDateString(pet.birthDate),
     weight: pet.weight === null ? null : Number(pet.weight),
+    // Ficha clinica basica
+    breed: pet.breed ?? null,
+    color: pet.color ?? null,
+    microchip: pet.microchip ?? null,
+    sterilized: pet.sterilized ?? null,
+    allergies: pet.allergies ?? null,
   };
+}
+
+// Campos opcionales de la ficha: solo se actualizan los que vienen en la peticion
+// (un cliente que no los envia no borra lo que ya estaba guardado).
+function validateFicha(body: Record<string, any>, errors: string[]) {
+  const ficha: { breed?: string | null; color?: string | null; microchip?: string | null; sterilized?: boolean | null; allergies?: string | null } = {};
+  const texto = (campo: "breed" | "color", etiqueta: string) => {
+    if (!(campo in body)) return;
+    const valor = String(body[campo] ?? "").trim();
+    if (valor.length > MAX_TEXT) errors.push(`${etiqueta} no puede superar los ${MAX_TEXT} caracteres.`);
+    else ficha[campo] = valor === "" ? null : valor;
+  };
+  texto("breed", "La raza");
+  texto("color", "El color");
+
+  if ("microchip" in body) {
+    const chip = String(body.microchip ?? "").replace(/\s/g, "");
+    if (chip === "") ficha.microchip = null;
+    else if (!/^\d{9,15}$/.test(chip)) errors.push("El microchip debe tener entre 9 y 15 dígitos.");
+    else ficha.microchip = chip;
+  }
+  if ("sterilized" in body) {
+    if (body.sterilized === null || body.sterilized === "") ficha.sterilized = null;
+    else if (typeof body.sterilized === "boolean") ficha.sterilized = body.sterilized;
+    else errors.push("Indica si la mascota está esterilizada (sí o no).");
+  }
+  if ("allergies" in body) {
+    const alergias = String(body.allergies ?? "").trim();
+    if (alergias.length > MAX_ALLERGIES) errors.push(`Las alergias no pueden superar los ${MAX_ALLERGIES} caracteres.`);
+    else ficha.allergies = alergias === "" ? null : alergias;
+  }
+  return ficha;
 }
 
 function validatePet(body: Record<string, any> = {}) {
@@ -57,11 +98,19 @@ function validatePet(body: Record<string, any> = {}) {
     }
   }
 
-  return { errors, value: { name: nombre, species: especie, sex: sexo, birthDate: fecha, weight: peso } };
+  const ficha = validateFicha(body, errors);
+  return { errors, value: { name: nombre, species: especie, sex: sexo, birthDate: fecha, weight: peso, ...ficha } };
 }
 
 async function findOwnActivePet(id: number, userId: number) {
   return prisma.pet.findFirst({ where: { id, userId, status: "ACTIVE" } });
+}
+
+function microchipRepetido(res: Response) {
+  return res.status(409).json({
+    message: "Ese microchip ya está registrado en otra mascota.",
+    fieldErrors: { microchip: "Ese microchip ya está registrado en otra mascota." },
+  });
 }
 
 function serverError(res: Response, where: any, error: unknown) {
@@ -92,6 +141,7 @@ async function createPet(req: Request, res: Response) {
     const pet = await prisma.pet.create({ data: { ...value, birthDate: value.birthDate!, userId: req.user.id } });
     return res.status(201).json({ message: `${pet.name} quedó registrado.`, pet: toPublicPet(pet) });
   } catch (error) {
+    if (esErrorPrisma(error) && error.code === "P2002") return microchipRepetido(res);
     return serverError(res, "createPet", error);
   }
 }
@@ -111,6 +161,7 @@ async function updatePet(req: Request, res: Response) {
     const pet = await prisma.pet.update({ where: { id }, data: { ...value, birthDate: value.birthDate! } });
     return res.status(200).json({ message: "Datos de la mascota actualizados.", pet: toPublicPet(pet) });
   } catch (error) {
+    if (esErrorPrisma(error) && error.code === "P2002") return microchipRepetido(res);
     return serverError(res, "updatePet", error);
   }
 }

@@ -42,6 +42,8 @@ async function authenticate(req: Request, res: Response, next: NextFunction) {
         role: true,
         status: true,
         emailVerifiedAt: true,
+        privacyAcceptedAt: true,
+        privacyVersion: true,
         createdAt: true,
         // El perfil profesional solo existe si la cuenta es de un veterinario.
         vetProfile: {

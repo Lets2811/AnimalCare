@@ -9,6 +9,8 @@ export interface UsuarioAutenticado {
   status: AccountStatus;
   emailVerifiedAt: Date | null;
   emailVerified: boolean;
+  privacyAcceptedAt: Date | null;
+  privacyVersion: string | null;
   createdAt: Date;
   vetProfile: {
     id: number;

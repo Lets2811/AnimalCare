@@ -59,6 +59,59 @@ async function runReminders(now = new Date(), soloDonde = {}) {
   return enviados;
 }
 
+const VENTANA_VACUNA_MS = 7 * 24 * 60 * 60 * 1000;
+const VENTANA_CONTROL_MS = 3 * 24 * 60 * 60 * 1000;
+
+// Recordatorios clinicos para el dueño: vacunas con proxima dosis en los proximos 7 dias y controles
+// de seguimiento en los proximos 3. Cada uno se avisa una sola vez (reminderSentAt / followUpReminderSentAt).
+// soloPetIds permite acotar la pasada (las pruebas la limitan a sus datos).
+async function runClinicalReminders(now = new Date(), soloPetIds?: number[]) {
+  const filtroPet = soloPetIds ? { in: soloPetIds } : undefined;
+  let enviados = 0;
+
+  const vacunas = await prisma.vaccination.findMany({
+    where: {
+      reminderSentAt: null,
+      nextDueAt: { gte: now, lte: new Date(now.getTime() + VENTANA_VACUNA_MS) },
+      pet: { ...(filtroPet ? { id: filtroPet } : {}), status: "ACTIVE", user: { status: "ACTIVE" } },
+    },
+    include: { pet: { select: { name: true, userId: true } } },
+  });
+  for (const v of vacunas) {
+    const marcada = await prisma.vaccination.updateMany({ where: { id: v.id, reminderSentAt: null }, data: { reminderSentAt: now } });
+    if (marcada.count === 0) continue;
+    await prisma.notification.create({
+      data: {
+        userId: v.pet.userId,
+        message: `Vacuna próxima: a ${v.pet.name} le toca "${v.name}" el ${describeDateTime(v.nextDueAt!)}. Agenda una cita para aplicarla.`,
+      },
+    });
+    enviados += 1;
+  }
+
+  const controles = await prisma.medicalRecord.findMany({
+    where: {
+      status: "ACTIVE",
+      followUpReminderSentAt: null,
+      followUpDate: { gte: now, lte: new Date(now.getTime() + VENTANA_CONTROL_MS) },
+      pet: { ...(filtroPet ? { id: filtroPet } : {}), status: "ACTIVE", user: { status: "ACTIVE" } },
+    },
+    include: { pet: { select: { name: true, userId: true } }, vetProfile: { include: { user: { select: { name: true } } } } },
+  });
+  for (const c of controles) {
+    const marcada = await prisma.medicalRecord.updateMany({ where: { id: c.id, followUpReminderSentAt: null }, data: { followUpReminderSentAt: now } });
+    if (marcada.count === 0) continue;
+    await prisma.notification.create({
+      data: {
+        userId: c.pet.userId,
+        message: `Control de seguimiento: ${c.vetProfile.user.name} sugirió revisar a ${c.pet.name} el ${describeDateTime(c.followUpDate!)}. Puedes agendar la cita.`,
+      },
+    });
+    enviados += 1;
+  }
+  return enviados;
+}
+
 // Arranca la revision periodica. Devuelve el temporizador para poder detenerlo.
 // Se desactiva con REMINDERS_ENABLED=false (por ejemplo, en un servidor de pruebas).
 function startReminderJob(intervalMs = Number(process.env.REMINDER_INTERVAL_MS) || 10 * 60 * 1000) {
@@ -66,11 +119,11 @@ function startReminderJob(intervalMs = Number(process.env.REMINDER_INTERVAL_MS) 
     return null;
   }
   const tick = () =>
-    runReminders().catch((error) => console.error("Error enviando recordatorios:", error));
+    Promise.all([runReminders(), runClinicalReminders()]).catch((error) => console.error("Error enviando recordatorios:", error));
   tick();
   const timer = setInterval(tick, intervalMs);
   timer.unref();
   return timer;
 }
 
-export { runReminders, startReminderJob };
+export { runReminders, runClinicalReminders, startReminderJob };

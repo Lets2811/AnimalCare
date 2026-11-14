@@ -15,7 +15,9 @@ import type { Request, Response } from "express";
 // - Solo el veterinario que escribio una entrada puede modificarla o anularla.
 import prisma from "../../prisma";
 import * as notificationService from "../notifications/notification.service";
-import { buildHistoryPdf } from "./historyPdf.service";
+import { buildHistoryPdf, buildPrescriptionPdf } from "./historyPdf.service";
+import { auditar, ACCIONES, ETIQUETAS_ACCION } from "../audit/audit.service";
+import { toPublicPet } from "../pets/pet.controller";
 import { parseId } from "../../utils/params";
 import { parseDate, toDateString, describeDateTime, startOfDay } from "../../utils/schedule";
 import * as uploads from "../../utils/uploads";
@@ -41,6 +43,8 @@ function badRequest(res: Response, errors: string[]) {
 const RECORD_INCLUDE = {
   vetProfile: { include: { user: { select: { name: true } } } },
   attachments: { orderBy: { createdAt: "asc" as const } },
+  vaccinations: { orderBy: { id: "asc" as const } },
+  prescriptions: { orderBy: { id: "asc" as const } },
 };
 
 function toPublicRecord(record: any, { paraVeterinario, vetProfileId }: { paraVeterinario: boolean; vetProfileId?: number }) {
@@ -55,6 +59,23 @@ function toPublicRecord(record: any, { paraVeterinario, vetProfileId }: { paraVe
     vaccines: record.vaccines,
     observations: record.observations,
     appointmentId: record.appointmentId,
+    // Proximo control sugerido, vacunas aplicadas (con proxima dosis) y medicamentos recetados.
+    followUpDate: record.followUpDate ? toDateString(record.followUpDate) : null,
+    vaccinations: (record.vaccinations || []).map((v: any) => ({
+      id: v.id,
+      name: v.name,
+      appliedAt: toDateString(v.appliedAt),
+      nextDueAt: v.nextDueAt ? toDateString(v.nextDueAt) : null,
+      lot: v.lot,
+    })),
+    prescriptions: (record.prescriptions || []).map((r: any) => ({
+      id: r.id,
+      medication: r.medication,
+      dose: r.dose,
+      frequency: r.frequency,
+      duration: r.duration,
+      instructions: r.instructions,
+    })),
     // Sin la ruta en disco: el archivo se pide por la API con su id.
     attachments: (record.attachments || []).map((a: any) => ({
       id: a.id,
@@ -77,15 +98,7 @@ function toPublicRecord(record: any, { paraVeterinario, vetProfileId }: { paraVe
 }
 
 function toPetSummary(pet: any) {
-  return {
-    id: pet.id,
-    name: pet.name,
-    species: pet.species,
-    sex: pet.sex,
-    birthDate: toDateString(pet.birthDate),
-    weight: pet.weight === null ? null : Number(pet.weight),
-    owner: pet.user ? { name: pet.user.name } : undefined,
-  };
+  return { ...toPublicPet(pet), owner: pet.user ? { name: pet.user.name } : undefined };
 }
 
 // ¿El veterinario atiende (o atendio) a esta mascota?
@@ -130,6 +143,84 @@ function textoOpcional(valor: unknown) {
 }
 
 // Valida los campos clinicos. Devuelve { errors, value }.
+const MAX_VACUNAS = 10;
+const MAX_RECETAS = 15;
+
+interface VacunaEntrada {
+  name: string;
+  nextDueAt: Date | null;
+  lot: string | null;
+}
+
+interface RecetaEntrada {
+  medication: string;
+  dose: string;
+  frequency: string;
+  duration: string | null;
+  instructions: string | null;
+}
+
+// undefined = no vino en la peticion (al modificar, se deja como estaba); [] = quitar todas.
+function validarVacunas(lista: unknown, errors: string[]): VacunaEntrada[] | undefined {
+  if (lista === undefined) return undefined;
+  if (!Array.isArray(lista)) {
+    errors.push("Las vacunas deben enviarse como una lista.");
+    return undefined;
+  }
+  if (lista.length > MAX_VACUNAS) {
+    errors.push(`No puedes registrar más de ${MAX_VACUNAS} vacunas por consulta.`);
+    return undefined;
+  }
+  const hoy = startOfDay();
+  const salida: VacunaEntrada[] = [];
+  lista.forEach((v: any, i: number) => {
+    const pos = i + 1;
+    const nombre = String(v?.name ?? "").trim();
+    if (nombre === "") return void errors.push(`El nombre de la vacuna ${pos} es obligatorio.`);
+    if (nombre.length > 80) return void errors.push(`El nombre de la vacuna ${pos} no puede superar los 80 caracteres.`);
+    let proxima: Date | null = null;
+    if (v?.nextDueAt !== undefined && v?.nextDueAt !== null && String(v.nextDueAt).trim() !== "") {
+      proxima = parseDate(v.nextDueAt);
+      if (!proxima) return void errors.push(`La fecha de la próxima dosis de la vacuna ${pos} no es válida (AAAA-MM-DD).`);
+      if (proxima.getTime() < hoy.getTime()) return void errors.push(`La próxima dosis de la vacuna ${pos} no puede ser una fecha pasada.`);
+    }
+    const lote = textoOpcional(v?.lot);
+    if (lote && lote.length > 40) return void errors.push(`El lote de la vacuna ${pos} no puede superar los 40 caracteres.`);
+    salida.push({ name: nombre, nextDueAt: proxima, lot: lote });
+  });
+  return salida;
+}
+
+function validarRecetas(lista: unknown, errors: string[]): RecetaEntrada[] | undefined {
+  if (lista === undefined) return undefined;
+  if (!Array.isArray(lista)) {
+    errors.push("Los medicamentos deben enviarse como una lista.");
+    return undefined;
+  }
+  if (lista.length > MAX_RECETAS) {
+    errors.push(`No puedes recetar más de ${MAX_RECETAS} medicamentos por consulta.`);
+    return undefined;
+  }
+  const salida: RecetaEntrada[] = [];
+  lista.forEach((r: any, i: number) => {
+    const pos = i + 1;
+    const medicamento = String(r?.medication ?? "").trim();
+    const dosis = String(r?.dose ?? "").trim();
+    const frecuencia = String(r?.frequency ?? "").trim();
+    if (medicamento === "") return void errors.push(`El nombre del medicamento ${pos} es obligatorio.`);
+    if (dosis === "") return void errors.push(`La dosis del medicamento ${pos} es obligatoria.`);
+    if (frecuencia === "") return void errors.push(`La frecuencia del medicamento ${pos} es obligatoria.`);
+    const duracion = textoOpcional(r?.duration);
+    const indicaciones = textoOpcional(r?.instructions);
+    if (medicamento.length > 100 || dosis.length > 60 || frecuencia.length > 60 || (duracion && duracion.length > 60)) {
+      return void errors.push(`Algún dato del medicamento ${pos} es demasiado largo.`);
+    }
+    if (indicaciones && indicaciones.length > 300) return void errors.push(`Las indicaciones del medicamento ${pos} no pueden superar los 300 caracteres.`);
+    salida.push({ medication: medicamento, dose: dosis, frequency: frecuencia, duration: duracion, instructions: indicaciones });
+  });
+  return salida;
+}
+
 function validateRecord(body: Record<string, any> = {}) {
   const errors: string[] = [];
   const reason = String(body.reason ?? "").trim();
@@ -177,7 +268,27 @@ function validateRecord(body: Record<string, any> = {}) {
     else if (visitDate.getTime() > Date.now()) errors.push("La fecha de la consulta no puede estar en el futuro.");
   }
 
-  return { errors, value: { reason, diagnosis, treatment, vaccines, observations, weight, temperature, visitDate } };
+  // Proximo control (opcional): ni pasado ni a mas de 2 años.
+  let followUpDate: Date | null | undefined;
+  if ("followUpDate" in body) {
+    const texto = textoOpcional(body.followUpDate);
+    if (texto === null) followUpDate = null;
+    else {
+      const fecha = parseDate(texto);
+      const hoy = startOfDay().getTime();
+      if (!fecha) errors.push("La fecha del próximo control no es válida (formato AAAA-MM-DD).");
+      else if (fecha.getTime() < hoy) errors.push("La fecha del próximo control no puede ser pasada.");
+      else if (fecha.getTime() > hoy + 2 * 366 * 24 * 60 * 60 * 1000) errors.push("La fecha del próximo control no puede ser a más de 2 años.");
+      else followUpDate = fecha;
+    }
+  }
+  const vaccinations = validarVacunas(body.vaccinations, errors);
+  const prescriptions = validarRecetas(body.prescriptions, errors);
+
+  return {
+    errors,
+    value: { reason, diagnosis, treatment, vaccines, observations, weight, temperature, visitDate, followUpDate, vaccinations, prescriptions },
+  };
 }
 
 // GET /api/medical-records/pets/:petId
@@ -189,6 +300,8 @@ async function getPetHistory(req: Request, res: Response) {
 
     const pet = await cargarMascotaConAcceso(req, res, petId);
     if (!pet) return undefined;
+
+    await auditar(req, ACCIONES.VER_HISTORIA, { entityType: "Pet", entityId: petId, petId, ownerId: pet.userId });
 
     const paraVeterinario = req.user.role === "VETERINARIAN";
     const records = await prisma.medicalRecord.findMany({
@@ -258,14 +371,9 @@ async function downloadHistoryPdf(req: Request, res: Response) {
       include: RECORD_INCLUDE,
       orderBy: [{ visitDate: "asc" }, { createdAt: "asc" }],
     });
+    await auditar(req, ACCIONES.DESCARGAR_PDF, { entityType: "Pet", entityId: petId, petId, ownerId: pet.userId });
     const pdf = await buildHistoryPdf({
-      pet: {
-        name: pet.name,
-        species: pet.species,
-        sex: pet.sex,
-        birthDate: toDateString(pet.birthDate),
-        weight: pet.weight === null ? null : Number(pet.weight),
-      },
+      pet: toPublicPet(pet),
       owner: req.user.role === "VETERINARIAN" ? pet.user.name : null,
       records: entradas.map((r) => ({
         visitDate: toDateString(r.visitDate),
@@ -276,7 +384,21 @@ async function downloadHistoryPdf(req: Request, res: Response) {
         temperature: r.temperature === null ? null : Number(r.temperature),
         vaccines: r.vaccines,
         observations: r.observations,
+        followUpDate: r.followUpDate ? toDateString(r.followUpDate) : null,
         vetName: r.vetProfile.user.name,
+        vaccinations: r.vaccinations.map((v) => ({
+          name: v.name,
+          appliedAt: toDateString(v.appliedAt),
+          nextDueAt: v.nextDueAt ? toDateString(v.nextDueAt) : null,
+          lot: v.lot,
+        })),
+        prescriptions: r.prescriptions.map((p) => ({
+          medication: p.medication,
+          dose: p.dose,
+          frequency: p.frequency,
+          duration: p.duration,
+          instructions: p.instructions,
+        })),
       })),
     });
 
@@ -339,12 +461,23 @@ async function createRecord(req: Request, res: Response) {
     const visitDate =
       value.visitDate || startOfDay(appointment.scheduledAt);
 
-    const { visitDate: _fechaIndicada, ...campos } = value;
+    const { visitDate: _fechaIndicada, vaccinations, prescriptions, followUpDate, ...campos } = value;
     let record;
     try {
       record = await prisma.$transaction(async (tx) => {
         const creado = await tx.medicalRecord.create({
-          data: { ...campos, visitDate, petId, vetProfileId, appointmentId: appointment.id },
+          data: {
+            ...campos,
+            visitDate,
+            petId,
+            vetProfileId,
+            appointmentId: appointment.id,
+            ...(followUpDate ? { followUpDate } : {}),
+            ...(vaccinations && vaccinations.length > 0
+              ? { vaccinations: { create: vaccinations.map((v) => ({ name: v.name, appliedAt: visitDate, nextDueAt: v.nextDueAt, lot: v.lot, petId, vetProfileId })) } }
+              : {}),
+            ...(prescriptions && prescriptions.length > 0 ? { prescriptions: { create: prescriptions } } : {}),
+          },
           include: RECORD_INCLUDE,
         });
         // El peso medido en consulta pasa a ser el peso actual de la mascota.
@@ -369,6 +502,7 @@ async function createRecord(req: Request, res: Response) {
       console.error("No se pudo notificar la nueva entrada:", error);
     }
 
+    await auditar(req, ACCIONES.CREAR_ENTRADA, { entityType: "MedicalRecord", entityId: record.id, petId, ownerId: pet.userId });
     return res.status(201).json({
       message: "Entrada agregada a la historia clínica.",
       record: toPublicRecord(record, { paraVeterinario: true, vetProfileId }),
@@ -410,15 +544,38 @@ async function updateRecord(req: Request, res: Response) {
     const { errors, value } = validateRecord(req.body);
     if (errors.length > 0) return badRequest(res, errors);
 
-    const { visitDate, ...campos } = value;
-    const record = await prisma.medicalRecord.update({
-      where: { id: actual.id },
-      data: { ...campos, ...(visitDate ? { visitDate } : {}) },
-      include: RECORD_INCLUDE,
+    const { visitDate, vaccinations, prescriptions, followUpDate, ...campos } = value;
+    const fechaConsulta = visitDate ?? actual.visitDate;
+    const record = await prisma.$transaction(async (tx) => {
+      // Si la peticion trae las listas, reemplazan a las anteriores; si no, se dejan como estaban.
+      if (vaccinations !== undefined) {
+        await tx.vaccination.deleteMany({ where: { recordId: actual.id } });
+        if (vaccinations.length > 0) {
+          await tx.vaccination.createMany({
+            data: vaccinations.map((v) => ({ name: v.name, appliedAt: fechaConsulta, nextDueAt: v.nextDueAt, lot: v.lot, petId: actual.petId, vetProfileId: actual.vetProfileId, recordId: actual.id })),
+          });
+        }
+      }
+      if (prescriptions !== undefined) {
+        await tx.prescription.deleteMany({ where: { recordId: actual.id } });
+        if (prescriptions.length > 0) {
+          await tx.prescription.createMany({ data: prescriptions.map((r) => ({ ...r, recordId: actual.id })) });
+        }
+      }
+      return tx.medicalRecord.update({
+        where: { id: actual.id },
+        data: {
+          ...campos,
+          ...(visitDate ? { visitDate } : {}),
+          ...(followUpDate !== undefined ? { followUpDate, followUpReminderSentAt: null } : {}),
+        },
+        include: RECORD_INCLUDE,
+      });
     });
     if (campos.weight !== null) {
       await prisma.pet.update({ where: { id: actual.petId }, data: { weight: campos.weight } });
     }
+    await auditar(req, ACCIONES.EDITAR_ENTRADA, { entityType: "MedicalRecord", entityId: record.id, petId: actual.petId });
 
     return res.status(200).json({
       message: "Entrada actualizada.",
@@ -447,6 +604,7 @@ async function annulRecord(req: Request, res: Response) {
       data: { status: "ANNULLED", annulReason: motivo, annulledAt: new Date() },
       include: RECORD_INCLUDE,
     });
+    await auditar(req, ACCIONES.ANULAR_ENTRADA, { entityType: "MedicalRecord", entityId: record.id, petId: actual.petId });
     return res.status(200).json({
       message: "Entrada eliminada de la historia clínica.",
       record: toPublicRecord(record, { paraVeterinario: true, vetProfileId: req.user.vetProfile!.id }),
@@ -533,6 +691,12 @@ async function downloadAttachment(req: Request, res: Response) {
     const adjunto = await cargarAdjuntoConAcceso(req, res);
     if (!adjunto) return undefined;
 
+    await auditar(req, ACCIONES.DESCARGAR_ADJUNTO, {
+      entityType: "MedicalAttachment",
+      entityId: adjunto.id,
+      petId: adjunto.record.petId,
+      ownerId: adjunto.record.pet.userId,
+    });
     res.setHeader("Content-Type", adjunto.mimeType);
     res.setHeader("X-Content-Type-Options", "nosniff");
     // Informacion medica: que ningun intermediario la guarde en cache.
@@ -573,4 +737,70 @@ async function removeAttachment(req: Request, res: Response) {
   }
 }
 
-export { downloadHistoryPdf, getPetHistory, createRecord, updateRecord, annulRecord, addAttachment, downloadAttachment, removeAttachment };
+// GET /api/medical-records/:id/prescription.pdf
+// Receta de una consulta (medicamentos, dosis, indicaciones) con los datos del profesional.
+async function downloadPrescriptionPdf(req: Request, res: Response) {
+  try {
+    const id = parseId(req.params.id);
+    if (!id) return res.status(400).json({ message: "El identificador de la entrada no es valido." });
+    const entrada = await prisma.medicalRecord.findUnique({
+      where: { id },
+      include: { ...RECORD_INCLUDE, vetProfile: { include: { user: { select: { name: true } } } } },
+    });
+    if (!entrada) return res.status(404).json({ message: "La entrada no existe." });
+    const pet = await cargarMascotaConAcceso(req, res, entrada.petId);
+    if (!pet) return undefined;
+    if (req.user.role === "CLIENT" && entrada.status !== "ACTIVE") {
+      return res.status(404).json({ message: "La entrada no existe." });
+    }
+    if (entrada.prescriptions.length === 0) {
+      return res.status(404).json({ message: "Esta consulta no tiene receta." });
+    }
+
+    await auditar(req, ACCIONES.DESCARGAR_RECETA, { entityType: "MedicalRecord", entityId: entrada.id, petId: pet.id, ownerId: pet.userId });
+    const pdf = await buildPrescriptionPdf({
+      pet: toPublicPet(pet),
+      owner: pet.user.name,
+      vet: { name: entrada.vetProfile.user.name, specialty: entrada.vetProfile.specialty, license: entrada.vetProfile.license },
+      visitDate: toDateString(entrada.visitDate),
+      prescriptions: entrada.prescriptions,
+    });
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="receta-${entrada.id}.pdf"`);
+    return res.status(200).send(pdf);
+  } catch (error) {
+    return serverError(res, "downloadPrescriptionPdf", error);
+  }
+}
+
+// GET /api/medical-records/pets/:petId/accesses   (solo el dueño)
+// Transparencia (Ley 1581): quien consulto, descargo o cambio la historia de su mascota.
+// Se omiten las acciones del propio dueño.
+async function listAccesses(req: Request, res: Response) {
+  try {
+    const petId = parseId(req.params.petId);
+    if (!petId) return res.status(400).json({ message: "El identificador de la mascota no es valido." });
+    const pet = await prisma.pet.findFirst({ where: { id: petId, userId: req.user.id } });
+    if (!pet) return res.status(404).json({ message: "La mascota no existe." });
+
+    const registros = await prisma.auditLog.findMany({
+      where: { petId, ownerId: req.user.id, NOT: { actorId: req.user.id } },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+    });
+    return res.status(200).json({
+      accesses: registros.map((r) => ({
+        id: r.id,
+        action: r.action,
+        label: ETIQUETAS_ACCION[r.action] ?? r.action,
+        actor: r.actorName,
+        role: r.actorRole,
+        at: r.createdAt,
+      })),
+    });
+  } catch (error) {
+    return serverError(res, "listAccesses", error);
+  }
+}
+
+export { downloadPrescriptionPdf, listAccesses, downloadHistoryPdf, getPetHistory, createRecord, updateRecord, annulRecord, addAttachment, downloadAttachment, removeAttachment };

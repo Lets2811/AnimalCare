@@ -1,3 +1,4 @@
+import { PRIVACY_VERSION } from "../../utils/privacidad";
 // Logica de autenticacion: hash de contrasenas, verificacion y generacion de JWT.
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
@@ -60,7 +61,7 @@ async function createUser({ name, email, password, role = "CLIENT", profile = nu
 
   if (role !== "VETERINARIAN") {
     return prisma.user.create({
-      data: { name, email, password: hashedPassword, role: "CLIENT", privacyAcceptedAt: new Date() },
+      data: { name, email, password: hashedPassword, role: "CLIENT", privacyAcceptedAt: new Date(), privacyVersion: PRIVACY_VERSION },
     });
   }
 
@@ -71,6 +72,7 @@ async function createUser({ name, email, password, role = "CLIENT", profile = nu
       password: hashedPassword,
       role: "VETERINARIAN",
       privacyAcceptedAt: new Date(),
+      privacyVersion: PRIVACY_VERSION,
       // El veterinario no queda visible ni puede atender hasta que el
       // administrador valide su matricula (AN-7 escenario 8, AN-35).
       status: "PENDING",
@@ -124,6 +126,8 @@ function toPublicUser(user: any) {
     status: user.status,
     emailVerified: Boolean(user.emailVerifiedAt),
     createdAt: user.createdAt,
+    privacyAcceptedAt: user.privacyAcceptedAt ?? null,
+    privacyVersion: user.privacyVersion ?? null,
   };
 
   // El frontend usa estos datos para decidir que panel mostrar.

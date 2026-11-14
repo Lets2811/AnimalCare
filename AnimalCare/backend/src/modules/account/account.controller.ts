@@ -1,3 +1,4 @@
+import { auditar, ACCIONES } from "../audit/audit.service";
 import type { TokenPurpose } from "@prisma/client";
 import type { Request, Response } from "express";
 // Cuenta del usuario: recuperar contrasena, verificar correo, editar datos,
@@ -280,4 +281,64 @@ async function deleteAccount(req: Request, res: Response) {
   }
 }
 
-export { forgotPassword, resetPassword, verifyEmail, resendVerification, updateAccount, changePassword, deleteAccount, enviarVerificacion };
+// GET /api/account/export
+// Derecho de acceso del titular (habeas data, Ley 1581): descarga en JSON todos sus datos personales
+// y los de sus mascotas, citas, historia clinica, avisos, calificaciones y urgencias.
+// Los archivos adjuntos (examenes) no se incluyen: se listan por nombre y se descargan desde la historia.
+async function exportData(req: Request, res: Response) {
+  try {
+    const usuario = await prisma.user.findUniqueOrThrow({
+      where: { id: req.user.id },
+      select: { id: true, name: true, email: true, role: true, status: true, createdAt: true, emailVerifiedAt: true, privacyAcceptedAt: true, privacyVersion: true },
+    });
+    const [mascotas, citasComoCliente, avisos, calificaciones, urgencias, perfil] = await Promise.all([
+      prisma.pet.findMany({
+        where: { userId: req.user.id },
+        include: {
+          medicalRecords: { include: { vaccinations: true, prescriptions: true, attachments: { select: { fileName: true, mimeType: true, sizeBytes: true } } } },
+          vaccinations: true,
+        },
+      }),
+      prisma.appointment.findMany({ where: { clientId: req.user.id }, include: { service: { select: { name: true, price: true } }, vetProfile: { include: { user: { select: { name: true } } } } } }),
+      prisma.notification.findMany({ where: { userId: req.user.id } }),
+      prisma.review.findMany({ where: { clientId: req.user.id } }),
+      prisma.emergencyRequest.findMany({ where: { clientId: req.user.id } }),
+      req.user.vetProfile
+        ? prisma.vetProfile.findUnique({
+            where: { id: req.user.vetProfile.id },
+            select: { license: true, specialty: true, bio: true, phone: true, address: true, homeService: true, clinicService: true, services: true, availabilities: true },
+          })
+        : Promise.resolve(null),
+    ]);
+    const citasComoVeterinario = req.user.vetProfile
+      ? await prisma.appointment.findMany({ where: { vetProfileId: req.user.vetProfile.id }, select: { id: true, scheduledAt: true, status: true, mode: true, notes: true } })
+      : [];
+
+    await auditar(req, ACCIONES.EXPORTAR_DATOS, { entityType: "User", entityId: req.user.id, ownerId: req.user.id });
+    res.setHeader("Content-Type", "application/json; charset=utf-8");
+    res.setHeader("Content-Disposition", 'attachment; filename="animalcare-mis-datos.json"');
+    res.setHeader("Cache-Control", "private, no-store");
+    return res.status(200).send(
+      JSON.stringify(
+        {
+          generadoEn: new Date().toISOString(),
+          nota: "Copia de tus datos personales en AnimalCare (derecho de acceso, Ley 1581 de 2012).",
+          cuenta: usuario,
+          perfilProfesional: perfil,
+          mascotas,
+          citasComoCliente,
+          citasComoVeterinario,
+          notificaciones: avisos,
+          calificaciones,
+          urgencias,
+        },
+        null,
+        2
+      )
+    );
+  } catch (error) {
+    return serverError(res, "exportData", error);
+  }
+}
+
+export { exportData, forgotPassword, resetPassword, verifyEmail, resendVerification, updateAccount, changePassword, deleteAccount, enviarVerificacion };

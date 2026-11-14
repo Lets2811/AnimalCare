@@ -78,6 +78,8 @@ model User {
   emailVerifiedAt   DateTime?
   // Cuando acepto la politica de privacidad y el tratamiento de datos (Ley 1581).
   privacyAcceptedAt DateTime?
+  // Version de la politica de privacidad que acepto (ver PRIVACY_VERSION en el backend).
+  privacyVersion    String?
   // Cuando elimino su cuenta.
   deletedAt         DateTime?
 
@@ -103,15 +105,21 @@ model User {
 }
 
 model Pet {
-  id        Int       @id @default(autoincrement())
-  name      String
-  species   String
-  sex       String
-  birthDate DateTime
-  weight    Decimal?  @db.Decimal(6, 2)
-  status    PetStatus @default(ACTIVE)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id         Int       @id @default(autoincrement())
+  name       String
+  species    String
+  sex        String
+  birthDate  DateTime
+  weight     Decimal?  @db.Decimal(6, 2)
+  // Ficha clinica basica
+  breed      String?
+  color      String?
+  microchip  String?   @unique
+  sterilized Boolean?
+  allergies  String?   @db.Text
+  status     PetStatus @default(ACTIVE)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
   // Toda mascota pertenece obligatoriamente a un usuario
   userId Int
@@ -125,6 +133,9 @@ model Pet {
 
   // Urgencias en las que se uso esta mascota
   emergencies EmergencyRequest[]
+
+  // Vacunas aplicadas (con fecha de la proxima dosis)
+  vaccinations Vaccination[]
 
   @@index([userId])
 }
@@ -163,6 +174,7 @@ model VetProfile {
   reviews        Review[]
   medicalRecords MedicalRecord[]
   emergencies    EmergencyRequest[]
+  vaccinations   Vaccination[]
 }
 
 // Servicio que ofrece un veterinario (consulta, vacunacion, bano...).
@@ -340,6 +352,14 @@ model MedicalRecord {
   // Archivos adjuntos (examenes, radiografias...). Privados.
   attachments MedicalAttachment[]
 
+  // Proximo control sugerido por el veterinario, y si ya se aviso al dueño.
+  followUpDate           DateTime?
+  followUpReminderSentAt DateTime?
+
+  // Vacunas aplicadas y medicamentos recetados en esta consulta.
+  vaccinations  Vaccination[]
+  prescriptions Prescription[]
+
   @@index([petId, visitDate])
 }
 
@@ -419,4 +439,61 @@ model EmergencyRequest {
   @@index([status, createdAt])
   @@index([clientId])
   @@index([vetProfileId, status])
+}
+
+// Vacuna aplicada a una mascota. nextDueAt = fecha de la proxima dosis (null si no hay refuerzo).
+model Vaccination {
+  id             Int       @id @default(autoincrement())
+  name           String
+  appliedAt      DateTime
+  nextDueAt      DateTime?
+  lot            String?
+  reminderSentAt DateTime?
+  createdAt      DateTime  @default(now())
+
+  petId Int
+  pet   Pet @relation(fields: [petId], references: [id])
+
+  vetProfileId Int
+  vetProfile   VetProfile @relation(fields: [vetProfileId], references: [id])
+
+  recordId Int?
+  record   MedicalRecord? @relation(fields: [recordId], references: [id], onDelete: Cascade)
+
+  @@index([petId, appliedAt])
+  @@index([nextDueAt])
+}
+
+// Medicamento recetado en una consulta (se imprime como receta).
+model Prescription {
+  id           Int      @id @default(autoincrement())
+  medication   String
+  dose         String
+  frequency    String
+  duration     String?
+  instructions String?  @db.Text
+  createdAt    DateTime @default(now())
+
+  recordId Int
+  record   MedicalRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
+}
+
+// Registro de auditoria: quien consulto o cambio datos sensibles (historias clinicas, exportaciones).
+// Sin llaves foraneas a proposito: el registro debe sobrevivir aunque la cuenta se elimine.
+model AuditLog {
+  id         Int      @id @default(autoincrement())
+  action     String // VIEW_HISTORY, DOWNLOAD_PDF, DOWNLOAD_ATTACHMENT, CREATE_RECORD, UPDATE_RECORD, ANNUL_RECORD, EXPORT_DATA...
+  actorId    Int?
+  actorName  String?
+  actorRole  String?
+  entityType String?
+  entityId   Int?
+  petId      Int?
+  ownerId    Int? // dueño de los datos consultados
+  ip         String?
+  createdAt  DateTime @default(now())
+
+  @@index([petId, createdAt])
+  @@index([ownerId, createdAt])
+  @@index([actorId, createdAt])
 }

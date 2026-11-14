@@ -29,10 +29,11 @@ const ENDPOINTS = [
   ["put", "/account/password", "Cuenta", "Cambia la contraseña (pide la actual)", TODOS, { currentPassword: "string", newPassword: "string" }],
   ["delete", "/account", "Cuenta", "Elimina la cuenta (anonimiza los datos y cancela citas futuras)", TODOS, { password: "string" }],
   ["post", "/account/resend-verification", "Cuenta", "Reenvía el correo de verificación", TODOS, null],
+  ["get", "/account/export", "Cuenta", "Descarga todos mis datos personales en JSON (derecho de acceso, Ley 1581); queda en el registro de auditoría", TODOS, null],
 
   ["get", "/pets", "Mascotas", "Mascotas del dueño", [CLIENTE], null],
-  ["post", "/pets", "Mascotas", "Registra una mascota", [CLIENTE], { name: "string", species: "string", sex: "string", birthDate: "AAAA-MM-DD", weight: "number?" }],
-  ["put", "/pets/{id}", "Mascotas", "Modifica una mascota propia", [CLIENTE], { name: "string", species: "string", sex: "string", birthDate: "AAAA-MM-DD", weight: "number?" }],
+  ["post", "/pets", "Mascotas", "Registra una mascota con su ficha básica", [CLIENTE], { name: "string", species: "string", sex: "string", birthDate: "AAAA-MM-DD", weight: "number?", breed: "string?", color: "string?", microchip: "string? (9-15 dígitos, único)", sterilized: "boolean?", allergies: "string?" }],
+  ["put", "/pets/{id}", "Mascotas", "Modifica una mascota propia (la ficha solo cambia si se envía)", [CLIENTE], { name: "string", species: "string", sex: "string", birthDate: "AAAA-MM-DD", weight: "number?", breed: "string?", color: "string?", microchip: "string?", sterilized: "boolean?", allergies: "string?" }],
   ["delete", "/pets/{id}", "Mascotas", "Retira una mascota (queda inactiva, se conserva la historia)", [CLIENTE], null],
 
   ["get", "/vets", "Veterinarios", "Busca veterinarios (q, specialty, mode, zone, maxPrice, sort, page)", TODOS, null],
@@ -71,8 +72,10 @@ const ENDPOINTS = [
 
   ["get", "/medical-records/pets/{petId}", "Historias clínicas", "Historia de una mascota (dueño: vigentes; veterinario: todas, citas por registrar y en atención)", [CLIENTE, VET], null],
   ["get", "/medical-records/pets/{petId}/pdf", "Historias clínicas", "Descarga la historia y el carnet de vacunas en PDF", [CLIENTE, VET], null],
-  ["post", "/medical-records", "Historias clínicas", "Crea la entrada de una cita en atención o atendida (appointmentId obligatorio)", [VET], { petId: "number", appointmentId: "number", reason: "string", diagnosis: "string", treatment: "string?", weight: "number?", temperature: "number?", vaccines: "string?", observations: "string?" }],
-  ["put", "/medical-records/{id}", "Historias clínicas", "Modifica una entrada propia", [VET], { reason: "string", diagnosis: "string" }],
+  ["get", "/medical-records/pets/{petId}/accesses", "Historias clínicas", "Quién consultó, descargó o cambió la historia de mi mascota (transparencia)", [CLIENTE], null],
+  ["get", "/medical-records/{id}/prescription.pdf", "Historias clínicas", "Receta de una consulta en PDF (404 si no tiene medicamentos)", [CLIENTE, VET], null],
+  ["post", "/medical-records", "Historias clínicas", "Crea la entrada de una cita en atención o atendida (appointmentId obligatorio)", [VET], { petId: "number", appointmentId: "number", reason: "string", diagnosis: "string", treatment: "string?", weight: "number?", temperature: "number?", vaccines: "string?", observations: "string?", followUpDate: "AAAA-MM-DD?", vaccinations: "[{ name, nextDueAt?, lot? }]", prescriptions: "[{ medication, dose, frequency, duration?, instructions? }]" }],
+  ["put", "/medical-records/{id}", "Historias clínicas", "Modifica una entrada propia (vacunas, recetas y control se reemplazan solo si se envían)", [VET], { reason: "string", diagnosis: "string", followUpDate: "AAAA-MM-DD | null", vaccinations: "[...]", prescriptions: "[...]" }],
   ["patch", "/medical-records/{id}/annul", "Historias clínicas", "Elimina (anula) una entrada propia con motivo", [VET], { reason: "string" }],
   ["post", "/medical-records/{id}/attachments", "Historias clínicas", "Adjunta un examen (PDF/JPG/PNG, 5 MB, hasta 10 por entrada)", [VET], { file: "data URL", name: "string?" }],
   ["get", "/medical-records/attachments/{attachmentId}", "Historias clínicas", "Descarga un adjunto (privado)", [CLIENTE, VET], null],
@@ -88,6 +91,7 @@ const ENDPOINTS = [
   ["patch", "/emergencies/{id}/release", "Urgencias", "Libera la urgencia (antes de iniciar la atención)", [VET], null],
 
   ["get", "/admin/metrics", "Administración", "Métricas: usuarios, citas, urgencias y calificaciones", [ADMIN], null],
+  ["get", "/admin/audit", "Administración", "Registro de auditoría (actorId, petId, action, page)", [ADMIN], null],
   ["get", "/admin/users", "Administración", "Lista usuarios con filtros (status, role, q, page)", [ADMIN], null],
   ["get", "/admin/users/{id}/license-doc", "Administración", "Descarga la tarjeta profesional de un veterinario", [ADMIN], null],
   ["patch", "/admin/users/{id}/approve", "Administración", "Aprueba un veterinario", [ADMIN], null],

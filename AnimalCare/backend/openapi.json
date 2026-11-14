@@ -494,6 +494,40 @@
         }
       }
     },
+    "/account/export": {
+      "get": {
+        "tags": [
+          "Cuenta"
+        ],
+        "summary": "Descarga todos mis datos personales en JSON (derecho de acceso, Ley 1581); queda en el registro de auditoría",
+        "description": "Roles: CLIENT, VETERINARIAN, ADMIN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
     "/pets": {
       "get": {
         "tags": [
@@ -531,7 +565,7 @@
         "tags": [
           "Mascotas"
         ],
-        "summary": "Registra una mascota",
+        "summary": "Registra una mascota con su ficha básica",
         "description": "Roles: CLIENT.",
         "security": [
           {
@@ -564,6 +598,26 @@
                   "weight": {
                     "type": "string",
                     "description": "number?"
+                  },
+                  "breed": {
+                    "type": "string",
+                    "description": "string?"
+                  },
+                  "color": {
+                    "type": "string",
+                    "description": "string?"
+                  },
+                  "microchip": {
+                    "type": "string",
+                    "description": "string? (9-15 dígitos, único)"
+                  },
+                  "sterilized": {
+                    "type": "string",
+                    "description": "boolean?"
+                  },
+                  "allergies": {
+                    "type": "string",
+                    "description": "string?"
                   }
                 }
               }
@@ -597,7 +651,7 @@
         "tags": [
           "Mascotas"
         ],
-        "summary": "Modifica una mascota propia",
+        "summary": "Modifica una mascota propia (la ficha solo cambia si se envía)",
         "description": "Roles: CLIENT.",
         "security": [
           {
@@ -640,6 +694,26 @@
                   "weight": {
                     "type": "string",
                     "description": "number?"
+                  },
+                  "breed": {
+                    "type": "string",
+                    "description": "string?"
+                  },
+                  "color": {
+                    "type": "string",
+                    "description": "string?"
+                  },
+                  "microchip": {
+                    "type": "string",
+                    "description": "string?"
+                  },
+                  "sterilized": {
+                    "type": "string",
+                    "description": "boolean?"
+                  },
+                  "allergies": {
+                    "type": "string",
+                    "description": "string?"
                   }
                 }
               }
@@ -2232,6 +2306,94 @@
         }
       }
     },
+    "/medical-records/pets/{petId}/accesses": {
+      "get": {
+        "tags": [
+          "Historias clínicas"
+        ],
+        "summary": "Quién consultó, descargó o cambió la historia de mi mascota (transparencia)",
+        "description": "Roles: CLIENT.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "petId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/medical-records/{id}/prescription.pdf": {
+      "get": {
+        "tags": [
+          "Historias clínicas"
+        ],
+        "summary": "Receta de una consulta en PDF (404 si no tiene medicamentos)",
+        "description": "Roles: CLIENT, VETERINARIAN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
     "/medical-records": {
       "post": {
         "tags": [
@@ -2286,6 +2448,18 @@
                   "observations": {
                     "type": "string",
                     "description": "string?"
+                  },
+                  "followUpDate": {
+                    "type": "string",
+                    "description": "AAAA-MM-DD?"
+                  },
+                  "vaccinations": {
+                    "type": "string",
+                    "description": "[{ name, nextDueAt?, lot? }]"
+                  },
+                  "prescriptions": {
+                    "type": "string",
+                    "description": "[{ medication, dose, frequency, duration?, instructions? }]"
                   }
                 }
               }
@@ -2319,7 +2493,7 @@
         "tags": [
           "Historias clínicas"
         ],
-        "summary": "Modifica una entrada propia",
+        "summary": "Modifica una entrada propia (vacunas, recetas y control se reemplazan solo si se envían)",
         "description": "Roles: VETERINARIAN.",
         "security": [
           {
@@ -2350,6 +2524,18 @@
                   "diagnosis": {
                     "type": "string",
                     "description": "string"
+                  },
+                  "followUpDate": {
+                    "type": "string",
+                    "description": "AAAA-MM-DD | null"
+                  },
+                  "vaccinations": {
+                    "type": "string",
+                    "description": "[...]"
+                  },
+                  "prescriptions": {
+                    "type": "string",
+                    "description": "[...]"
                   }
                 }
               }
@@ -2954,6 +3140,40 @@
           "Administración"
         ],
         "summary": "Métricas: usuarios, citas, urgencias y calificaciones",
+        "description": "Roles: ADMIN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/admin/audit": {
+      "get": {
+        "tags": [
+          "Administración"
+        ],
+        "summary": "Registro de auditoría (actorId, petId, action, page)",
         "description": "Roles: ADMIN.",
         "security": [
           {

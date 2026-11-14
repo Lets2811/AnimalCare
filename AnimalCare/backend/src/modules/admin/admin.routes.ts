@@ -10,6 +10,7 @@ const router = express.Router();
 router.use(authenticate, requireRole("ADMIN"));
 
 router.get("/metrics", admin.metrics); // panel de metricas
+router.get("/audit", admin.listAudit); // registro de auditoria
 router.get("/users", admin.listUsers); // AN-38
 router.get("/users/:id/license-doc", admin.downloadLicenseDoc); // AN-35
 router.patch("/users/:id/approve", admin.approveUser); // AN-35

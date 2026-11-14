@@ -11,6 +11,7 @@ router.use(authenticate);
 router.put("/", account.updateAccount);
 router.put("/password", account.changePassword);
 router.delete("/", account.deleteAccount);
+router.get("/export", account.exportData); // derecho de acceso (habeas data)
 router.post("/resend-verification", account.resendVerification);
 
 export default router;

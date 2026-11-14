@@ -1,3 +1,4 @@
+import { ETIQUETAS_ACCION } from "../audit/audit.service";
 import type { AccountStatus, Role } from "@prisma/client";
 import type { Request, Response } from "express";
 // Panel del administrador.
@@ -223,6 +224,42 @@ async function downloadLicenseDoc(req: Request, res: Response) {
   }
 }
 
+// GET /api/admin/audit?actorId=&petId=&action=&page=
+// Registro de auditoria: quien consulto o cambio datos sensibles. Paginado, lo mas reciente primero.
+async function listAudit(req: Request, res: Response) {
+  try {
+    const entero = (valor: unknown) => (/^\d+$/.test(String(valor ?? "")) ? Number(valor) : undefined);
+    const pagina = Math.max(1, entero(req.query.page) ?? 1);
+    const tamano = 50;
+    const accion = typeof req.query.action === "string" && req.query.action.trim() !== "" ? req.query.action.trim() : undefined;
+    const where = { actorId: entero(req.query.actorId), petId: entero(req.query.petId), action: accion };
+    const [total, registros] = await Promise.all([
+      prisma.auditLog.count({ where }),
+      prisma.auditLog.findMany({ where, orderBy: { createdAt: "desc" }, skip: (pagina - 1) * tamano, take: tamano }),
+    ]);
+    return res.status(200).json({
+      total,
+      page: pagina,
+      totalPages: Math.max(1, Math.ceil(total / tamano)),
+      logs: registros.map((r) => ({
+        id: r.id,
+        action: r.action,
+        label: ETIQUETAS_ACCION[r.action] ?? r.action,
+        actor: r.actorName,
+        actorId: r.actorId,
+        role: r.actorRole,
+        petId: r.petId,
+        entityType: r.entityType,
+        entityId: r.entityId,
+        ip: r.ip,
+        at: r.createdAt,
+      })),
+    });
+  } catch (error) {
+    return serverError(res, "listAudit", error);
+  }
+}
+
 // GET /api/admin/metrics: resumen de usuarios, citas, urgencias y calificaciones.
 async function metrics(req: Request, res: Response) {
   try {
@@ -236,4 +273,4 @@ const approveUser = crearAccion("approve");
 const rejectUser = crearAccion("reject");
 const suspendUser = crearAccion("suspend");
 const reactivateUser = crearAccion("reactivate");
-export { downloadLicenseDoc, listUsers, metrics, approveUser, rejectUser, suspendUser, reactivateUser };
+export { listAudit, downloadLicenseDoc, listUsers, metrics, approveUser, rejectUser, suspendUser, reactivateUser };

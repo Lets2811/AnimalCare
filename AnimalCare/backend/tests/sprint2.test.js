@@ -21,7 +21,7 @@ const bcrypt = require("bcrypt");
 
 const prisma = require("../src/prisma").default;
 const uploads = require("../src/utils/uploads");
-const { runReminders } = require("../src/modules/appointments/reminder.service");
+const { runReminders, runClinicalReminders } = require("../src/modules/appointments/reminder.service");
 const { toDateString, localWeekday, toTimeOfDay, parseTime } = require("../src/utils/schedule");
 
 // Con TEST_IN_PROCESS=1 (npm run coverage) la API arranca dentro del propio proceso de la prueba,
@@ -2302,6 +2302,217 @@ describe("Pago simulado de la cita", () => {
     assert.equal(r.status, 200, errores(r));
     assert.equal(r.data.appointment.payment.status, "REFUNDED");
     assert.equal((await http("POST", `/appointments/${ctx.citaPago}/pay`, { token: ctx.clienteB })).status, 409, "cancelada: no se paga");
+  });
+});
+
+// ======================= Ficha clinica, vacunas, recetas, auditoria y datos personales =======================
+
+const enDias = (n) => toDateString(new Date(Date.now() + n * 24 * 60 * 60 * 1000));
+
+describe("Ficha de la mascota (raza, microchip, alergias)", () => {
+  test("se guarda la ficha basica y aparece en la lista", async () => {
+    const r = await http("POST", "/pets", {
+      token: ctx.clienteA,
+      body: { name: "Nube", species: "Perro", sex: "Hembra", birthDate: "2021-06-01", breed: "Criollo", color: "Blanco", microchip: `9${RUN}12345`, sterilized: true, allergies: "Penicilina" },
+    });
+    assert.equal(r.status, 201, errores(r));
+    assert.deepEqual(
+      { breed: r.data.pet.breed, color: r.data.pet.color, sterilized: r.data.pet.sterilized, allergies: r.data.pet.allergies },
+      { breed: "Criollo", color: "Blanco", sterilized: true, allergies: "Penicilina" }
+    );
+    ctx.nube = r.data.pet;
+    const lista = await http("GET", "/pets", { token: ctx.clienteA });
+    assert.equal(lista.data.pets.find((p) => p.id === ctx.nube.id).microchip, ctx.nube.microchip);
+  });
+
+  test("modificar sin enviar la ficha no la borra; enviarla vacia si", async () => {
+    const sinFicha = await http("PUT", `/pets/${ctx.nube.id}`, {
+      token: ctx.clienteA,
+      body: { name: "Nube", species: "Perro", sex: "Hembra", birthDate: "2021-06-01" },
+    });
+    assert.equal(sinFicha.status, 200, errores(sinFicha));
+    assert.equal(sinFicha.data.pet.breed, "Criollo");
+    assert.equal(sinFicha.data.pet.allergies, "Penicilina");
+
+    const vacia = await http("PUT", `/pets/${ctx.nube.id}`, {
+      token: ctx.clienteA,
+      body: { name: "Nube", species: "Perro", sex: "Hembra", birthDate: "2021-06-01", allergies: "" },
+    });
+    assert.equal(vacia.data.pet.allergies, null);
+  });
+
+  test("valida el microchip y que no se repita en otra mascota", async () => {
+    const mal = await http("POST", "/pets", { token: ctx.clienteA, body: { name: "X", species: "Gato", sex: "Macho", birthDate: "2022-01-01", microchip: "12ab" } });
+    assert.equal(mal.status, 400);
+    const repetido = await http("POST", "/pets", { token: ctx.clienteB, body: { name: "Y", species: "Gato", sex: "Macho", birthDate: "2022-01-01", microchip: ctx.nube.microchip } });
+    assert.equal(repetido.status, 409);
+    assert.match(repetido.data.message, /microchip ya está registrado/);
+    const esterilizado = await http("POST", "/pets", { token: ctx.clienteA, body: { name: "Z", species: "Gato", sex: "Macho", birthDate: "2022-01-01", sterilized: "talvez" } });
+    assert.equal(esterilizado.status, 400);
+  });
+});
+
+describe("Vacunas con proxima dosis, recetas y control de seguimiento", () => {
+  const registrar = (cita, extra = {}) =>
+    http("POST", "/medical-records", {
+      token: ctx.vet,
+      body: { petId: ctx.nube.id, appointmentId: cita.id, reason: "Consulta de control", diagnosis: "Sano", ...extra },
+    });
+
+  test("una consulta guarda vacunas, receta y proximo control", async () => {
+    const cita = await citaEnCurso(ctx.nube.id);
+    const r = await registrar(cita, {
+      vaccinations: [{ name: "Rabia", nextDueAt: enDias(3), lot: "L-77" }, { name: "Triple canina" }],
+      prescriptions: [{ medication: "Amoxicilina", dose: "250 mg", frequency: "cada 12 horas", duration: "7 días", instructions: "Con comida" }],
+      followUpDate: enDias(20),
+    });
+    assert.equal(r.status, 201, errores(r));
+    const rec = r.data.record;
+    assert.deepEqual(rec.vaccinations.map((v) => [v.name, v.nextDueAt, v.lot]), [["Rabia", enDias(3), "L-77"], ["Triple canina", null, null]]);
+    assert.equal(rec.prescriptions[0].medication, "Amoxicilina");
+    assert.equal(rec.followUpDate, enDias(20));
+    ctx.entradaClinica = rec;
+    ctx.citaClinica = cita;
+
+    // El dueño la ve completa en la historia.
+    const historia = await http("GET", `/medical-records/pets/${ctx.nube.id}`, { token: ctx.clienteA });
+    const vista = historia.data.records.find((x) => x.id === rec.id);
+    assert.equal(vista.vaccinations.length, 2);
+    assert.equal(historia.data.pet.allergies, null, "la ficha viaja con la historia");
+    assert.equal(historia.data.pet.breed, "Criollo");
+  });
+
+  test("valida vacunas, medicamentos y fecha del control", async () => {
+    const cita = await citaEnCurso(ctx.nube.id);
+    const casos = [
+      [{ vaccinations: [{ name: "Rabia", nextDueAt: enDias(-2) }] }, /no puede ser una fecha pasada/],
+      [{ vaccinations: [{ name: "" }] }, /nombre de la vacuna 1 es obligatorio/],
+      [{ vaccinations: Array.from({ length: 11 }, (_, i) => ({ name: `V${i}` })) }, /más de 10 vacunas/],
+      [{ prescriptions: [{ medication: "Amoxicilina", dose: "", frequency: "c/12h" }] }, /dosis del medicamento 1 es obligatoria/],
+      [{ prescriptions: "no es lista" }, /deben enviarse como una lista/],
+      [{ followUpDate: enDias(-1) }, /no puede ser pasada/],
+      [{ followUpDate: "2099-01-01" }, /más de 2 años/],
+    ];
+    for (const [extra, mensaje] of casos) {
+      const r = await registrar(cita, extra);
+      assert.equal(r.status, 400, JSON.stringify(extra));
+      assert.match(r.data.errors.join(" "), mensaje);
+    }
+    await prisma.appointment.update({ where: { id: cita.id }, data: { status: "CANCELLED" } });
+  });
+
+  test("modificar reemplaza las listas que se envian y respeta las que no", async () => {
+    const id = ctx.entradaClinica.id;
+    const solo = await http("PUT", `/medical-records/${id}`, {
+      token: ctx.vet,
+      body: { reason: "Consulta de control", diagnosis: "Sano", prescriptions: [{ medication: "Meloxicam", dose: "1 ml", frequency: "cada 24 horas" }] },
+    });
+    assert.equal(solo.status, 200, errores(solo));
+    assert.equal(solo.data.record.prescriptions.length, 1);
+    assert.equal(solo.data.record.prescriptions[0].medication, "Meloxicam");
+    assert.equal(solo.data.record.vaccinations.length, 2, "las vacunas no venian: se conservan");
+    assert.equal(solo.data.record.followUpDate, enDias(20), "el control no venia: se conserva");
+
+    const quitar = await http("PUT", `/medical-records/${id}`, { token: ctx.vet, body: { reason: "Consulta de control", diagnosis: "Sano", vaccinations: [], followUpDate: null } });
+    assert.equal(quitar.data.record.vaccinations.length, 0);
+    assert.equal(quitar.data.record.followUpDate, null);
+    // Se dejan de nuevo para las pruebas siguientes.
+    await http("PUT", `/medical-records/${id}`, {
+      token: ctx.vet,
+      body: { reason: "Consulta de control", diagnosis: "Sano", vaccinations: [{ name: "Rabia", nextDueAt: enDias(3) }], followUpDate: enDias(2) },
+    });
+  });
+
+  test("la receta se descarga en PDF: dueño y veterinario si; otro cliente y una consulta sin receta no", async () => {
+    const pdf = (token, id) => fetch(`${API}/medical-records/${id}/prescription.pdf`, { headers: { Authorization: `Bearer ${token}` } });
+    const id = ctx.entradaClinica.id;
+    const r = await pdf(ctx.clienteA, id);
+    assert.equal(r.status, 200);
+    assert.equal(r.headers.get("content-type"), "application/pdf");
+    assert.equal(Buffer.from(await r.arrayBuffer()).subarray(0, 5).toString(), "%PDF-");
+    assert.equal((await pdf(ctx.vet, id)).status, 200);
+    assert.equal((await pdf(ctx.clienteB, id)).status, 404);
+
+    const cita = await citaEnCurso(ctx.nube.id);
+    const sinReceta = await registrar(cita);
+    assert.equal(sinReceta.status, 201, errores(sinReceta));
+    assert.equal((await pdf(ctx.clienteA, sinReceta.data.record.id)).status, 404);
+  });
+
+  test("avisa al dueño de la vacuna y del control proximos, una sola vez", async () => {
+    const antes = (await http("GET", "/notifications", { token: ctx.clienteA })).data.notifications.length;
+    const enviados = await runClinicalReminders(new Date(), [ctx.nube.id]);
+    assert.equal(enviados, 2, "una vacuna y un control");
+    const avisos = (await http("GET", "/notifications", { token: ctx.clienteA })).data.notifications;
+    assert.equal(avisos.length, antes + 2);
+    assert.ok(avisos.some((n) => /Vacuna próxima: a Nube le toca "Rabia"/.test(n.message)));
+    assert.ok(avisos.some((n) => /Control de seguimiento:.*Nube/.test(n.message)));
+    assert.equal(await runClinicalReminders(new Date(), [ctx.nube.id]), 0, "no se repite");
+  });
+});
+
+describe("Auditoria de accesos a la historia clinica (Ley 1581)", () => {
+  test("el dueño ve quien consulto la historia de su mascota, sin contar sus propias consultas", async () => {
+    await http("GET", `/medical-records/pets/${ctx.nube.id}`, { token: ctx.vet }); // el veterinario consulta
+    await http("GET", `/medical-records/pets/${ctx.nube.id}`, { token: ctx.clienteA }); // el dueño consulta
+    await fetch(`${API}/medical-records/pets/${ctx.nube.id}/pdf`, { headers: { Authorization: `Bearer ${ctx.vet}` } });
+
+    const r = await http("GET", `/medical-records/pets/${ctx.nube.id}/accesses`, { token: ctx.clienteA });
+    assert.equal(r.status, 200, errores(r));
+    const acciones = r.data.accesses.map((a) => a.action);
+    assert.ok(acciones.includes("VIEW_HISTORY") && acciones.includes("DOWNLOAD_PDF") && acciones.includes("CREATE_RECORD"));
+    assert.ok(r.data.accesses.every((a) => a.actor !== "Cliente clienteA QA"), "no incluye las consultas del propio dueño");
+    assert.ok(r.data.accesses.some((a) => a.actor === NOMBRE_VET && a.role === "VETERINARIAN"));
+    assert.match(r.data.accesses[0].label, /\S/);
+  });
+
+  test("solo el dueño ve los accesos; el resto no", async () => {
+    assert.equal((await http("GET", `/medical-records/pets/${ctx.nube.id}/accesses`, { token: ctx.clienteB })).status, 404);
+    assert.equal((await http("GET", `/medical-records/pets/${ctx.nube.id}/accesses`, { token: ctx.vet })).status, 403);
+    assert.equal((await http("GET", `/medical-records/pets/${ctx.nube.id}/accesses`)).status, 401);
+  });
+
+  test("el administrador consulta el registro completo con filtros; los demas no", async () => {
+    const r = await http("GET", `/admin/audit?petId=${ctx.nube.id}`, { token: ctx.admin });
+    assert.equal(r.status, 200, errores(r));
+    assert.ok(r.data.total >= 3);
+    assert.ok(r.data.logs.every((l) => l.petId === ctx.nube.id));
+    assert.ok(r.data.logs[0].ip !== undefined && r.data.logs[0].actor !== undefined);
+    const filtrado = await http("GET", `/admin/audit?petId=${ctx.nube.id}&action=CREATE_RECORD`, { token: ctx.admin });
+    assert.ok(filtrado.data.logs.length >= 1 && filtrado.data.logs.every((l) => l.action === "CREATE_RECORD"));
+    assert.equal((await http("GET", "/admin/audit", { token: ctx.clienteA })).status, 403);
+    assert.equal((await http("GET", "/admin/audit", { token: ctx.vet })).status, 403);
+  });
+});
+
+describe("Datos personales: exportar y version de la politica (habeas data)", () => {
+  test("el titular descarga todos sus datos en JSON y queda registrado", async () => {
+    const r = await fetch(`${API}/account/export`, { headers: { Authorization: `Bearer ${ctx.clienteA}` } });
+    assert.equal(r.status, 200);
+    assert.match(r.headers.get("content-disposition"), /attachment; filename="animalcare-mis-datos\.json"/);
+    const datos = JSON.parse(await r.text());
+    assert.equal(datos.cuenta.email, ctx.emails.clienteA);
+    assert.ok(datos.mascotas.some((m) => m.name === "Nube" && m.medicalRecords.length >= 1));
+    assert.ok(datos.mascotas.find((m) => m.name === "Nube").medicalRecords.some((e) => e.prescriptions.length >= 1));
+    assert.ok(Array.isArray(datos.citasComoCliente) && Array.isArray(datos.notificaciones));
+    assert.equal("password" in datos.cuenta, false, "nunca incluye la contraseña");
+
+    const bitacora = await prisma.auditLog.findFirst({ where: { action: "EXPORT_DATA", ownerId: datos.cuenta.id } });
+    assert.ok(bitacora, "la exportacion queda en el registro de auditoria");
+    assert.equal((await fetch(`${API}/account/export`)).status, 401);
+  });
+
+  test("el veterinario exporta tambien su perfil profesional", async () => {
+    const r = await fetch(`${API}/account/export`, { headers: { Authorization: `Bearer ${ctx.vet}` } });
+    const datos = JSON.parse(await r.text());
+    assert.equal(datos.perfilProfesional.license, `QA${RUN}`);
+    assert.ok(Array.isArray(datos.citasComoVeterinario) && datos.citasComoVeterinario.length > 0);
+  });
+
+  test("al registrarse se guarda la version de la politica aceptada", async () => {
+    const me = await http("GET", "/auth/me", { token: ctx.clienteA });
+    assert.equal(me.data.user.privacyVersion, "2026-11-14");
+    assert.ok(me.data.user.privacyAcceptedAt);
   });
 });
 
