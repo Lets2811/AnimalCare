@@ -1,8 +1,22 @@
 # Guía de cambios y cómo ensayarlos
 
-Documento de la ronda de mejoras de calidad (rama `mejoras-calidad`, todo en local, sin subir a ningún remoto).
-Primero un resumen de lo que cambió, luego **cómo probar cada cosa paso a paso**, la **revisión de flujos**
-(qué encontré, qué corregí y qué corregiría después) y cómo correr todas las pruebas.
+Documento de las rondas de mejoras (ramas `mejoras-calidad` y `migracion-typescript`, todo en local).
+Primero cómo dejar todo listo, luego **qué cambió y cómo probarlo paso a paso**, la **revisión de flujos**
+(qué se encontró, qué se corrigió y qué se corregiría después) y cómo correr todas las pruebas.
+
+> Documentos relacionados: [DECISIONES-TECNICAS.md](DECISIONES-TECNICAS.md) (qué se hizo y qué se aplazó, con motivo) y
+> [cumplimiento-normativo.md](cumplimiento-normativo.md) (Ley 1581 y otras).
+
+## 0. Resumen de la última ronda (TypeScript, normativa y funciones de veterinaria)
+
+| Área | Qué se hizo |
+|---|---|
+| **Arquitectura** | Backend en **TypeScript estricto**; código reorganizado en **módulos por dominio** (`src/modules/*`); compilación a `dist/` y Docker de dos etapas (Node 22) |
+| **Normativa (Ley 1581)** | Registro de **auditoría** de accesos a historias; el dueño ve **quién consultó** la de su mascota; **exportar mis datos**; **versión** de la política aceptada; política actualizada; script de **retención** de datos |
+| **Funciones de veterinaria** | **Ficha de la mascota** (raza, color, microchip, esterilización, alergias); **vacunas con próxima dosis** y carnet; **recetas** (PDF); **control de seguimiento**; **gráfico de peso**; **directorio de pacientes**; **recordatorios** de vacunas y controles |
+| **Pruebas** | API, interfaz, e2e (flujo clínico completo) y accesibilidad, todas con las funciones nuevas |
+
+Cómo probar cada parte está en las secciones 2.13 a 2.20.
 
 ## 1. Cómo dejar todo listo para probar
 
@@ -141,6 +155,60 @@ Ver la sección 3. Resumen de lo que se arregló:
 4. **El dueño podía cancelar una urgencia en plena atención.** Ahora se bloquea; solo se cancela si el veterinario la devuelve.
 5. **Una urgencia vencida no avisaba** al dueño. Ahora recibe una notificación.
 
+### 2.13 Backend en TypeScript y por módulos
+**Qué:** todo `backend/src` y los scripts operativos están en TypeScript con el modo estricto. Los archivos viven en
+`src/modules/<dominio>/` (controller, service y routes juntos). Las pruebas siguen en JavaScript.
+**Probar:**
+1. `cd backend && npm run typecheck`: sin errores.
+2. `npm run build && ls dist`: se compila a `dist/` (ahí no hay TypeScript).
+3. `npm run dev`: la API arranca con recarga (`tsx watch`).
+4. Las 190+ pruebas de la API pasan sin haber cambiado de comportamiento: `npm run coverage`.
+**Docker:** `docker compose up --build` ahora compila el backend en una etapa y deja una imagen final liviana.
+
+### 2.14 Ficha de la mascota
+**Qué:** al registrar o editar una mascota se pueden añadir **raza, color, microchip (9–15 dígitos, único), esterilizado y alergias**.
+Las alergias salen resaltadas en la tarjeta de la mascota, en el encabezado de la historia y en el directorio del veterinario.
+**Probar:** como `demo.cliente` → **Mis mascotas** → editar a `Luna` → sección "Ficha clínica". Prueba un microchip con letras (error)
+y uno repetido en otra mascota (409). Modificar la mascota por la API sin enviar la ficha **no la borra**.
+
+### 2.15 Vacunas, recetas y control de seguimiento
+**Qué:** al registrar la consulta, el veterinario puede añadir:
+- **Vacunas** (nombre, **próxima dosis**, lote). El carnet de vacunas muestra "Próximas dosis" (con "Pronto" si faltan menos de 30 días)
+  y todo lo aplicado. Las consultas antiguas con texto libre siguen apareciendo.
+- **Receta** (medicamento, dosis, frecuencia, duración, indicaciones), con botón **Descargar receta (PDF)** con el nombre y la matrícula del profesional.
+- **Próximo control sugerido** (fecha).
+- El dueño recibe **avisos**: una semana antes de la próxima dosis y 3 días antes del control. También hay un gráfico de **evolución del peso**.
+**Probar:** como `demo.vet` inicia la atención de una cita con una mascota, agrega "+ Agregar vacuna" (con próxima dosis) y
+"+ Agregar medicamento", fija el control y pulsa **Guardar y terminar atención**. Luego como el dueño abre la historia:
+carnet, receta y PDF. En `demo.cliente` → Luna ya hay una consulta de ejemplo con todo esto.
+
+### 2.16 Directorio de pacientes
+**Qué:** el veterinario tiene **Pacientes** en el menú: las mascotas que atiende o atendió, con dueño, número de visitas, última visita,
+próxima cita, alergias y enlace a la historia. Buscador por nombre de la mascota o del dueño.
+**Probar:** `demo.vet` → **Pacientes** → escribe "Luna". Un veterinario no ve los pacientes de otro.
+
+### 2.17 Recordatorios de salud para el dueño
+**Qué:** en el panel del dueño aparece **Vacunas y controles** con lo que viene en los próximos 60 días (y lo atrasado de los últimos 30).
+Una dosis posterior de la misma vacuna reemplaza el recordatorio de la anterior.
+**Probar:** `demo.cliente` → Panel: si el seed se corrió de cero, Luna tiene una vacuna y un control próximos.
+
+### 2.18 Transparencia: quién consultó la historia
+**Qué:** cada vez que alguien abre, descarga o cambia una historia clínica, queda en el registro de auditoría.
+El dueño ve ese registro (sin contar sus propias consultas) y el administrador lo ve completo, con filtros.
+**Probar:** `demo.vet` abre la historia de Luna → `demo.cliente` → historia de Luna → **Ver quién ha consultado esta historia**.
+Como `demo.admin` → **Auditoría** (filtra por acción y por número de mascota).
+
+### 2.19 Mis datos y política de privacidad
+**Qué:** **Mi cuenta → Descargar mis datos (JSON)** entrega toda la información del titular (queda auditado). Mi cuenta muestra la
+**versión de la política** aceptada y su fecha. La política (`/privacidad`) se actualizó con los datos nuevos, los derechos, la auditoría,
+la retención y Google Maps.
+**Probar:** `demo.cliente` → Mi cuenta → "Descargar mis datos". Abre el archivo: no trae contraseñas.
+
+### 2.20 Retención de datos
+**Qué:** `npm run retencion` **simula** qué depuraría (tokens vencidos, notificaciones leídas antiguas, cuentas eliminadas sin datos que
+conservar); con `-- --aplicar` lo borra. No toca historias clínicas, citas ni la auditoría.
+**Probar:** `cd backend && npm run retencion`.
+
 ## 3. Revisión de flujos: qué corregiría y cómo
 
 Revisé cada flujo con pruebas reales contra la API (carreras, estados límite) y leyendo el código. Leyenda: ✅ bien ·
@@ -163,33 +231,32 @@ Revisé cada flujo con pruebas reales contra la API (carreras, estados límite) 
 
 ## 4. Cómo correr todas las pruebas
 
-Con MySQL corriendo y la API **apagada** para las de cobertura (arranca la suya en el puerto 4310):
+Con MySQL corriendo:
 
 ```bash
-# Backend (API, 179 casos: 177 pasan, 2 condicionales) + cobertura
+# Tipos y compilación del backend
 cd backend
+npm run typecheck && npm run build
+
+# Backend (API) con cobertura: arranca la API dentro del proceso de prueba (puerto 4310)
 npm run coverage
 
 # Backend contra un servidor ya corriendo (puerto 4000)
 npm test
 
-# Frontend (104 casos) + cobertura + lint + build
+# Frontend: pruebas unitarias + cobertura + lint + build
 cd ../frontend
-npm run coverage
-npm run lint
-npm run build
+npm run coverage && npm run lint && npm run build
 
-# Extremo a extremo y accesibilidad (16 casos). Necesita backend y frontend corriendo
-# (puertos 4000 y 5173, o E2E_API_URL / E2E_BASE_URL) y Chrome instalado.
+# Extremo a extremo y accesibilidad. Necesita la API y el frontend corriendo
+# (puertos 4000 y 5173, o E2E_API_URL / E2E_BASE_URL) y Chrome instalado
 PLAYWRIGHT_CHANNEL=chrome npm run test:e2e
 ```
 
-Resultado de esta ronda: backend **177/179 pasan** (2 condicionales por la hora del día), frontend **104/104**,
-e2e **16/16**, lint y build sin avisos, cobertura de líneas del backend **87,7 %**.
+**Resultado de esta ronda:** backend **196/198 pasan** (2 condicionales por la hora del día) con cobertura de líneas **92 %**, frontend **123/123**, e2e y accesibilidad **21/21**, TypeScript sin errores, lint y build sin avisos, y la imagen de Docker compilada se construye y arranca desde una base vacía.
 
 Notas:
-- Las pruebas de urgencias dependen de la hora: necesitan que falten más de 30 minutos para la medianoche en Bogotá.
-  Si corren en ese margen, se omiten solas (no fallan).
-- Las pruebas crean usuarios `qa.*` y `e2e.*` y los borran al terminar. Si una prueba se interrumpe, limpia con
-  `node scripts/clean-test-data.js qa.` (o `e2e.`).
-- Todo esto está **sin commitear** en la rama `mejoras-calidad` y no se subió a ningún remoto.
+- Las pruebas de urgencias dependen de la hora: se omiten solas si faltan menos de 30 minutos para la medianoche en Bogotá.
+- Las pruebas crean usuarios `qa.*` y `e2e.*` y los borran al terminar. Si se interrumpen: `npx tsx scripts/clean-test-data.ts qa.` (o `e2e.`).
+- Los e2e usan `tsx` para preparar datos desde el backend: no hace falta compilar.
+- Todo el trabajo está **en local**, en commits de las ramas `mejoras-calidad` y `migracion-typescript`; no se subió a ningún remoto.

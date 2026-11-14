@@ -6,10 +6,10 @@
 ## Resumen
 
 - Historias de usuario en el README: **27**
-- Pruebas de API (backend, node:test): **174** casos en 39 grupos
-- Pruebas de interfaz (frontend, vitest): **104** casos en 17 archivos
+- Pruebas de API (backend, node:test): **193** casos en 45 grupos
+- Pruebas de interfaz (frontend, vitest): **123** casos en 20 archivos
 - Pruebas de extremo a extremo (Playwright): ver `frontend/e2e/`
-- Cobertura de líneas: backend **87.7 %** (5454/6216), frontend **31.2 %** (2471/7917)
+- Cobertura de líneas: backend **92.0 %** (6367/6921), frontend **34.3 %** (2973/8670)
 
 ## Historia → criterios → pruebas
 
@@ -26,10 +26,10 @@
 | AN-15 | Cancelar citas por veterinario (con motivo opcional) | Implementada | [4 escenarios](criterios-aceptacion-sprint3.md#an-15-cancelar-citas-por-veterinario) | 2 | 14 |
 | AN-16 | Modificar citas por veterinario (reprogramar, confirmar, marcar atendida) | Implementada | [5 escenarios](criterios-aceptacion-sprint3.md#an-16-modificar-citas-por-veterinario) | 11 | 18 |
 | AN-17 | Visualizar citas pendientes de un dia por veterinario | Implementada | [5 escenarios](criterios-aceptacion-sprint3.md#an-17-visualizar-citas-pendientes-por-veterinario) | 5 | 4 |
-| AN-18 | Crear historia clinica | Implementada | [7 escenarios](criterios-aceptacion-sprint3.md#an-18-crear-historia-clínica) | 20 | 6 |
+| AN-18 | Crear historia clinica | Implementada | [7 escenarios](criterios-aceptacion-sprint3.md#an-18-crear-historia-clínica) | 20 | 19 |
 | AN-19 | Eliminar historia clinica (anula la entrada con motivo) | Implementada | [3 escenarios](criterios-aceptacion-sprint3.md#an-19-eliminar-historia-clínica) | 3 | — |
 | AN-20 | Modificar historia clinica | Implementada | [3 escenarios](criterios-aceptacion-sprint3.md#an-20-modificar-historia-clínica) | 3 | — |
-| AN-21 | El dueño accede a la historia clinica de su mascota | Implementada | [7 escenarios](criterios-aceptacion-sprint3.md#an-21-acceder-a-la-historia-clínica-de-la-mascota-por-usuario) | 12 | 9 |
+| AN-21 | El dueño accede a la historia clinica de su mascota | Implementada | [7 escenarios](criterios-aceptacion-sprint3.md#an-21-acceder-a-la-historia-clínica-de-la-mascota-por-usuario) | 12 | 25 |
 | AN-22 | Visualizar notificaciones por usuario | Implementada | [5 escenarios](criterios-aceptacion-sprint3.md#an-22-visualizar-notificaciones-por-usuario) | 6 | — |
 | AN-23 | Visualizar notificaciones por veterinario | Implementada (incluye las urgencias, ver abajo) | [7 escenarios](criterios-aceptacion-sprint3.md#an-23-visualizar-notificaciones-por-veterinario) | 24 | 15 |
 | AN-26 | Visualizar perfil detallado y servicios del veterinario | Listo | — | 5 | — |
@@ -41,7 +41,7 @@
 | AN-32 | Cerrar sesion | Listo | — | — | — |
 | AN-35 | Verificacion de cuentas de veterinarios | Implementada | — | 10 | — |
 | AN-37 | Suspension y bloqueo de cuentas | Implementada | — | 6 | 7 |
-| AN-38 | Visualizacion y gestion general de usuarios | Implementada | — | 10 | 3 |
+| AN-38 | Visualizacion y gestion general de usuarios | Implementada | — | 10 | 6 |
 
 > Historias sin pruebas automáticas ligadas por título: AN-32.
 
@@ -407,6 +407,37 @@
 - una cita sin servicio (sin valor) no se paga
 - cancelar una cita pagada registra el reembolso simulado
 
+**Ficha de la mascota (raza, microchip, alergias)** (3)
+- se guarda la ficha basica y aparece en la lista
+- modificar sin enviar la ficha no la borra; enviarla vacia si
+- valida el microchip y que no se repita en otra mascota
+
+**Vacunas con proxima dosis, recetas y control de seguimiento** (5)
+- una consulta guarda vacunas, receta y proximo control
+- valida vacunas, medicamentos y fecha del control
+- modificar reemplaza las listas que se envian y respeta las que no
+- la receta se descarga en PDF: dueño y veterinario si; otro cliente y una consulta sin receta no
+- avisa al dueño de la vacuna y del control proximos, una sola vez
+
+**Auditoria de accesos a la historia clinica (Ley 1581)** (3)
+- el dueño ve quien consulto la historia de su mascota, sin contar sus propias consultas
+- solo el dueño ve los accesos; el resto no
+- el administrador consulta el registro completo con filtros; los demas no
+
+**Directorio de pacientes del veterinario** (2)
+- lista las mascotas que atiende, con dueño, visitas y filtro por nombre
+- un veterinario no ve los pacientes de otro, y un cliente no entra
+
+**Recordatorios de vacunas y controles del dueño** (3)
+- el dueño ve las proximas dosis y controles de sus mascotas
+- solo cuenta la ultima aplicacion: una dosis posterior reemplaza el recordatorio anterior
+- otro dueño no ve nada ajeno; un veterinario no usa este endpoint
+
+**Datos personales: exportar y version de la politica (habeas data)** (3)
+- el titular descarga todos sus datos en JSON y queda registrado
+- el veterinario exporta tambien su perfil profesional
+- al registrarse se guarda la version de la politica aceptada
+
 **Panel de metricas del administrador** (2)
 - el administrador ve el resumen; un cliente o un veterinario no
 - cuenta las citas atendidas y las calificaciones
@@ -423,16 +454,19 @@
 | components/AgendaSemanal.test.jsx | 4 | AN-17 |
 | components/Alerta.test.jsx | 4 | Transversal |
 | components/CitaTarjeta.test.jsx | 14 | AN-14, AN-15, AN-16 |
+| components/historia/historia.test.jsx | 8 | AN-18, AN-21 |
 | components/MapaUbicacion.test.jsx | 6 | AN-10, AN-11 |
 | components/Selector.test.jsx | 6 | Transversal |
 | components/ToastProvider.test.jsx | 9 | Transversal |
 | components/UrgenciaCliente.test.jsx | 7 | AN-23 |
 | components/UrgenciaVeterinario.test.jsx | 8 | AN-23 |
+| pages/AdminAuditoria.test.jsx | 3 | AN-38 |
 | pages/AdminMetricas.test.jsx | 3 | AN-38 |
 | pages/AgendarCita.test.jsx | 8 | AN-13 |
+| pages/Pacientes.test.jsx | 5 | AN-18, AN-21 |
 | services/api.test.js | 7 | AN-8, AN-37 |
 | services/appointment.service.test.js | 4 | AN-14, AN-16 |
 | services/mapas.test.js | 7 | AN-10, AN-11 |
-| services/medicalRecord.service.test.js | 3 | AN-21 |
+| services/medicalRecord.service.test.js | 6 | AN-21 |
 | services/zona.test.js | 3 | Transversal |
 | utils/nombres.test.js | 5 | Transversal |

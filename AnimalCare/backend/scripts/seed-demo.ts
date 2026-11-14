@@ -20,6 +20,7 @@ import path from "node:path";
 import bcrypt from "bcrypt";
 
 import prisma from "../src/prisma";
+import { PRIVACY_VERSION } from "../src/utils/privacidad";
 import { combine, toDateString, addDays, startOfDay, localWeekday } from "../src/utils/schedule";
 
 const CLAVE = "Demo1234";
@@ -58,6 +59,7 @@ async function crearUsuario(datos: DatosCuenta, hash: string) {
       status: datos.status || "ACTIVE",
       emailVerifiedAt: new Date(),
       privacyAcceptedAt: new Date(),
+      privacyVersion: PRIVACY_VERSION,
     },
   });
   console.log(`  + ${datos.email} (${datos.role})`);
