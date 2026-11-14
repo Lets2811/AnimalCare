@@ -70,6 +70,40 @@ describe("CitaTarjeta: atencion de la cita", () => {
   });
 });
 
+describe("CitaTarjeta: pago simulado", () => {
+  const conPrecio = (payment) => ({
+    ...base,
+    time: "17:00",
+    status: "CONFIRMED",
+    service: { id: 1, name: "Consulta general", price: 60000, durationMinutes: 30 },
+    payment,
+  });
+
+  test("el dueño ve el valor y puede pagar mientras este pendiente", () => {
+    pintar(conPrecio({ status: "PENDING", amount: 60000, reference: null }));
+    expect(screen.getAllByText(/60\.000/).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Pago pendiente/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Pagar .*60\.000.* \(simulado\)/ })).toBeInTheDocument();
+  });
+
+  test("una cita pagada muestra la referencia y ya no ofrece pagar", () => {
+    pintar(conPrecio({ status: "PAID", amount: 60000, reference: "SIM-1-ABC" }));
+    expect(screen.getByText(/Pagada · Ref\. SIM-1-ABC/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Pagar/ })).not.toBeInTheDocument();
+  });
+
+  test("el veterinario ve el estado del pago pero no puede pagar", () => {
+    pintar(conPrecio({ status: "PENDING", amount: 60000, reference: null }), { perspectiva: "veterinario" });
+    expect(screen.getByText(/Pago pendiente/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Pagar/ })).not.toBeInTheDocument();
+  });
+
+  test("una cita sin valor no muestra nada de pagos", () => {
+    pintar({ ...base, payment: { status: "NONE", amount: 0, reference: null } });
+    expect(screen.queryByText(/Pago pendiente|Pagada/)).not.toBeInTheDocument();
+  });
+});
+
 describe("CitaTarjeta", () => {
   test("el cliente ve al veterinario, la direccion del consultorio y puede cancelar", () => {
     pintar(base);

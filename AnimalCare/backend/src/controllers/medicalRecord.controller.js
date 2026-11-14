@@ -13,6 +13,7 @@
 // - Solo el veterinario que escribio una entrada puede modificarla o anularla.
 const prisma = require("../prisma");
 const notificationService = require("../services/notification.service");
+const { buildHistoryPdf } = require("../services/historyPdf.service");
 const { parseId } = require("../utils/params");
 const { parseDate, toDateString, describeDateTime, startOfDay } = require("../utils/schedule");
 const uploads = require("../utils/uploads");
@@ -237,6 +238,52 @@ async function getPetHistory(req, res) {
     });
   } catch (error) {
     return serverError(res, "getPetHistory", error);
+  }
+}
+
+// GET /api/medical-records/pets/:petId/pdf
+// Descarga la historia clinica (entradas vigentes) y el carnet de vacunas en PDF.
+// Mismo acceso que la historia en pantalla: el dueño y los veterinarios con relacion con la mascota.
+async function downloadHistoryPdf(req, res) {
+  try {
+    const petId = parseId(req.params.petId);
+    if (!petId) return res.status(400).json({ message: "El identificador de la mascota no es valido." });
+    const pet = await cargarMascotaConAcceso(req, res, petId);
+    if (!pet) return undefined;
+
+    const entradas = await prisma.medicalRecord.findMany({
+      where: { petId, status: "ACTIVE" },
+      include: RECORD_INCLUDE,
+      orderBy: [{ visitDate: "asc" }, { createdAt: "asc" }],
+    });
+    const pdf = await buildHistoryPdf({
+      pet: {
+        name: pet.name,
+        species: pet.species,
+        sex: pet.sex,
+        birthDate: toDateString(pet.birthDate),
+        weight: pet.weight === null ? null : Number(pet.weight),
+      },
+      owner: req.user.role === "VETERINARIAN" ? pet.user.name : null,
+      records: entradas.map((r) => ({
+        visitDate: toDateString(r.visitDate),
+        reason: r.reason,
+        diagnosis: r.diagnosis,
+        treatment: r.treatment,
+        weight: r.weight === null ? null : Number(r.weight),
+        temperature: r.temperature === null ? null : Number(r.temperature),
+        vaccines: r.vaccines,
+        observations: r.observations,
+        vetName: r.vetProfile.user.name,
+      })),
+    });
+
+    const archivo = `historia-${pet.name}`.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9-]+/g, "-");
+    res.setHeader("Content-Type", "application/pdf");
+    res.setHeader("Content-Disposition", `attachment; filename="${archivo}.pdf"`);
+    return res.status(200).send(pdf);
+  } catch (error) {
+    return serverError(res, "downloadHistoryPdf", error);
   }
 }
 
@@ -526,6 +573,7 @@ async function removeAttachment(req, res) {
 }
 
 module.exports = {
+  downloadHistoryPdf,
   getPetHistory,
   createRecord,
   updateRecord,

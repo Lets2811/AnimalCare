@@ -15,8 +15,8 @@ const APPOINTMENT_INCLUDE = {
   },
 };
 
-async function createAppointment(data) {
-  return prisma.appointment.create({
+async function createAppointment(data, db = prisma) {
+  return db.appointment.create({
     data,
     include: APPOINTMENT_INCLUDE,
   });
@@ -58,20 +58,35 @@ async function findAppointmentById(id) {
 
 // Cambia la cita solo si sigue en uno de los estados esperados (evita pisar
 // un cambio hecho al mismo tiempo por la otra persona). null si ya cambio.
-async function updateIfStatus(id, statuses, data) {
-  const resultado = await prisma.appointment.updateMany({
+async function updateIfStatus(id, statuses, data, db = prisma) {
+  const resultado = await db.appointment.updateMany({
     where: { id, status: { in: statuses } },
     data,
   });
   if (resultado.count === 0) {
     return null;
   }
-  return prisma.appointment.findUnique({ where: { id }, include: APPOINTMENT_INCLUDE });
+  return db.appointment.findUnique({ where: { id }, include: APPOINTMENT_INCLUDE });
 }
 
 // Formato de cita que se envia al frontend.
 // La fecha y la hora se separan porque es como las muestra y las envia
 // la pantalla de agendamiento.
+// Estado de pago (simulado): NONE (sin valor), PENDING, PAID o REFUNDED.
+function toPayment(appointment) {
+  const valor = appointment.paidAmount !== null && appointment.paidAmount !== undefined
+    ? Number(appointment.paidAmount)
+    : appointment.service
+      ? Number(appointment.service.price)
+      : 0;
+  let status = "PENDING";
+  if (!appointment.service && !appointment.paidAt) status = "NONE";
+  else if (appointment.service && Number(appointment.service.price) <= 0 && !appointment.paidAt) status = "NONE";
+  else if (appointment.refundedAt) status = "REFUNDED";
+  else if (appointment.paidAt) status = "PAID";
+  return { status, amount: valor, paidAt: appointment.paidAt || null, reference: appointment.paymentRef || null };
+}
+
 function toPublicAppointment(appointment) {
   return {
     id: appointment.id,
@@ -101,6 +116,7 @@ function toPublicAppointment(appointment) {
     review: appointment.review ? { rating: appointment.review.rating, comment: appointment.review.comment } : null,
     // Entrada de historia clinica registrada para esta cita (AN-18).
     medicalRecordId: appointment.medicalRecord ? appointment.medicalRecord.id : null,
+    payment: toPayment(appointment),
     service: appointment.service
       ? {
           id: appointment.service.id,

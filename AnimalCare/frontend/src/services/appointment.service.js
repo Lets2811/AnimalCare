@@ -64,6 +64,22 @@ export async function completarCita(id, { skipRecord = false } = {}) {
   return respuesta.data;
 }
 
+// POST /api/appointments/:id/pay  (pago SIMULADO: no se procesa ninguna tarjeta)
+export async function pagarCita(id) {
+  const respuesta = await api.post(`/appointments/${id}/pay`);
+  return respuesta.data;
+}
+
+export const ESTADOS_PAGO = {
+  PENDING: "Pago pendiente",
+  PAID: "Pagada",
+  REFUNDED: "Reembolsada (simulado)",
+};
+
+export function formatoPesos(valor) {
+  return Number(valor).toLocaleString("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 });
+}
+
 // POST /api/appointments/:id/review  (resena despues de una cita atendida)
 export async function calificarCita(id, { rating, comment }) {
   const respuesta = await api.post(`/appointments/${id}/review`, { rating, comment });

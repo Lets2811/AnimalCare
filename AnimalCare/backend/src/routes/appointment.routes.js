@@ -8,6 +8,7 @@ const {
   confirmAppointment,
   startAppointment,
   completeAppointment,
+  payAppointment,
   reviewAppointment,
 } = require("../controllers/appointment.controller");
 const { authenticate } = require("../middleware/auth.middleware");
@@ -33,6 +34,7 @@ router.patch("/:id/start", requireRole("VETERINARIAN"), startAppointment);
 router.patch("/:id/complete", requireRole("VETERINARIAN"), completeAppointment);
 
 // Resena del cliente despues de una cita atendida.
+router.post("/:id/pay", requireRole("CLIENT"), payAppointment); // pago simulado
 router.post("/:id/review", requireRole("CLIENT"), reviewAppointment);
 
 module.exports = router;

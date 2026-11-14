@@ -1462,3 +1462,202 @@
   background-color: #f1f4f2;
   border-color: var(--borde);
 }
+
+/* Enlace dentro del aviso ambar: el verde de marca no alcanza contraste AA sobre ese fondo. */
+.aviso-verificacion a {
+  color: var(--aviso-texto);
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+/* ---------- Metricas del administrador ---------- */
+
+.metricas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+  margin: 12px 0;
+}
+
+.metrica {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px;
+  background-color: var(--verde-50);
+  border: 1px solid var(--verde-200);
+  border-radius: var(--radio);
+}
+
+.metrica-valor {
+  font-size: 1.6rem;
+  line-height: 1.2;
+  color: var(--verde-700);
+}
+
+.metrica-texto {
+  font-size: 0.85rem;
+  color: var(--texto-suave);
+}
+
+.barras {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 140px;
+  margin: 16px 0 4px;
+  padding: 0;
+  list-style: none;
+}
+
+.barra-columna {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  height: 100%;
+  min-width: 0;
+}
+
+.barra {
+  display: block;
+  width: 100%;
+  min-height: 2px;
+  background-color: var(--verde-600);
+  border-radius: 4px 4px 0 0;
+}
+
+.barra-numero,
+.barra-dia {
+  font-size: 0.75rem;
+  color: var(--texto-suave);
+}
+
+.ranking {
+  margin: 8px 0 0;
+  padding-left: 20px;
+}
+
+.ranking li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--borde);
+}
+
+/* ---------- Carnet de vacunas ---------- */
+
+.vacunas {
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.vacunas li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--borde);
+}
+
+/* ---------- Agenda semanal del veterinario ---------- */
+
+.selector-vista {
+  display: flex;
+  gap: 6px;
+}
+
+.semana-rango {
+  min-width: 150px;
+  text-align: center;
+}
+
+.semana {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.semana-dia {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background-color: var(--fondo-suave, #fafaf8);
+  border: 1px solid var(--borde);
+  border-radius: var(--radio);
+}
+
+.semana-hoy {
+  border-color: var(--verde-600);
+  box-shadow: 0 0 0 1px var(--verde-600);
+}
+
+.semana-cabecera {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 4px;
+  font: inherit;
+  color: var(--texto);
+  cursor: pointer;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--borde);
+}
+
+.semana-citas {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 6px;
+  list-style: none;
+}
+
+.semana-vacio {
+  text-align: center;
+  color: var(--texto-suave);
+}
+
+.semana-cita {
+  display: block;
+  width: 100%;
+  padding: 6px;
+  font: inherit;
+  font-size: 0.8rem;
+  line-height: 1.3;
+  text-align: left;
+  color: var(--texto);
+  cursor: pointer;
+  background-color: var(--aviso-fondo);
+  border: 1px solid var(--aviso-borde);
+  border-radius: 6px;
+  overflow-wrap: anywhere;
+}
+
+.semana-confirmed,
+.semana-in_progress {
+  background-color: var(--verde-50);
+  border-color: var(--verde-200);
+}
+
+.semana-completed {
+  background-color: #f1f4f2;
+  border-color: var(--borde);
+}
+
+.semana-estado {
+  display: block;
+  color: var(--texto-suave);
+}
+
+@media (max-width: 760px) {
+  .semana {
+    grid-template-columns: 1fr;
+  }
+}

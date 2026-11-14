@@ -14,6 +14,12 @@ export async function listarUsuarios({ status, role, q, page, pageSize } = {}) {
   return respuesta.data; // { total, page, totalPages, counts, users }
 }
 
+// GET /api/admin/metrics: resumen de usuarios, citas, urgencias y calificaciones.
+export async function obtenerMetricas() {
+  const respuesta = await api.get("/admin/metrics");
+  return respuesta.data;
+}
+
 // Abre la tarjeta profesional del veterinario en otra pestaña.
 // Se descarga con el token porque el archivo es privado.
 export async function verTarjetaProfesional(id) {

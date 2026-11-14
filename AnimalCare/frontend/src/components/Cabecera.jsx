@@ -101,9 +101,14 @@ function Cabecera() {
               </NavLink>
             )}
             {esAdministrador && (
-              <NavLink to="/admin/usuarios" className="cabecera-enlace">
-                Usuarios
-              </NavLink>
+              <>
+                <NavLink to="/admin/usuarios" className="cabecera-enlace">
+                  Usuarios
+                </NavLink>
+                <NavLink to="/admin/metricas" className="cabecera-enlace">
+                  Métricas
+                </NavLink>
+              </>
             )}
           </nav>
 

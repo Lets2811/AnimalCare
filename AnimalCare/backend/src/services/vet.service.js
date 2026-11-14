@@ -237,7 +237,17 @@ async function findAvailableSlots(vetProfile, date, durationMinutes = DEFAULT_DU
 // el mismo horario entre que se carga la pantalla y se confirma.
 // excludeAppointmentId: al reprogramar (AN-16), la cita que se mueve no
 // cuenta como ocupada.
-async function isSlotFree(vetProfileId, start, durationMinutes, excludeAppointmentId = null) {
+// Serializa las reservas de un mismo veterinario con un candado de fila (SELECT ... FOR UPDATE):
+// sin esto, dos clientes que reservan la misma hora a la vez pasan la comprobacion los dos.
+// `fn` recibe la transaccion (tx) y debe usarla para comprobar el horario y guardar.
+async function conCandado(vetProfileId, fn) {
+  return prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM VetProfile WHERE id = ${vetProfileId} FOR UPDATE`;
+    return fn(tx);
+  });
+}
+
+async function isSlotFree(vetProfileId, start, durationMinutes, excludeAppointmentId = null, db = prisma) {
   const end = new Date(start.getTime() + durationMinutes * 60 * 1000);
 
   // Una cita anterior solo puede estorbar si empezo, como maximo,
@@ -246,7 +256,7 @@ async function isSlotFree(vetProfileId, start, durationMinutes, excludeAppointme
 
   // La base filtra por hora de inicio; el fin se calcula aqui porque
   // depende de la duracion guardada en cada fila.
-  const citas = await prisma.appointment.findMany({
+  const citas = await db.appointment.findMany({
     where: {
       vetProfileId,
       status: { in: BUSY_STATUSES },
@@ -265,7 +275,7 @@ async function isSlotFree(vetProfileId, start, durationMinutes, excludeAppointme
   }
 
   // AN-31: tampoco puede caer dentro de un bloqueo.
-  const bloqueo = await prisma.scheduleBlock.findFirst({
+  const bloqueo = await db.scheduleBlock.findFirst({
     where: { vetProfileId, startsAt: { lt: end }, endsAt: { gt: start } },
     select: { id: true },
   });
@@ -342,6 +352,7 @@ module.exports = {
   buildScheduleSlots,
   findAvailableSlots,
   isSlotFree,
+  conCandado,
   toPublicService,
   toPublicVetSummary,
   toPublicVetDetail,

@@ -4,6 +4,7 @@
 //
 //   node scripts/clean-test-data.js e2e.
 //   node scripts/clean-test-data.js qa.
+//   node scripts/clean-test-data.js demo.   (datos de npm run seed)
 //
 // Solo acepta prefijos de prueba conocidos para no borrar cuentas reales.
 require("dotenv").config();
@@ -11,7 +12,7 @@ require("dotenv").config();
 const prisma = require("../src/prisma");
 const uploads = require("../src/utils/uploads");
 
-const PREFIJOS_PERMITIDOS = ["qa.", "e2e."];
+const PREFIJOS_PERMITIDOS = ["qa.", "e2e.", "demo."];
 
 async function main() {
   const prefijo = process.argv[2];

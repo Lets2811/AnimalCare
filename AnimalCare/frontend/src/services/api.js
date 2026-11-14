@@ -15,6 +15,13 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+function cerrarSesionPorError(mensaje) {
+  localStorage.removeItem("token");
+  localStorage.removeItem("usuario");
+  sessionStorage.setItem("avisoSesion", mensaje);
+  if (window.location.pathname !== "/login") window.location.assign("/login");
+}
+
 // AN-37: si el administrador suspende o rechaza la cuenta mientras la sesion
 // esta abierta, el backend responde 403 con code ACCOUNT_BLOCKED. Se borra la
 // sesion local y se vuelve al login con el motivo.
@@ -26,10 +33,13 @@ api.interceptors.response.use(
     const esLogin = error.config?.url === "/auth/login";
 
     if (!esLogin && error.response?.status === 403 && datos?.code === "ACCOUNT_BLOCKED") {
-      localStorage.removeItem("token");
-      localStorage.removeItem("usuario");
-      sessionStorage.setItem("avisoSesion", datos.message);
-      window.location.assign("/login");
+      cerrarSesionPorError(datos.message);
+    }
+
+    // Token vencido o invalido (dura 2 horas): se vuelve al login con un aviso en vez de
+    // dejar la pantalla con errores 401 en silencio. Solo si habia una sesion guardada.
+    if (!esLogin && error.response?.status === 401 && localStorage.getItem("token")) {
+      cerrarSesionPorError("Tu sesión expiró. Inicia sesión de nuevo para continuar.");
     }
 
     return Promise.reject(error);

@@ -6,6 +6,7 @@ import { Link, useParams } from "react-router-dom";
 import { usarTitulo } from "../hooks/usarTitulo";
 import Cabecera from "../components/Cabecera";
 import Icono from "../components/Icono";
+import MapaUbicacion from "../components/MapaUbicacion";
 import Estrellas from "../components/Estrellas";
 import Alerta from "../components/Alerta";
 import FotoVeterinario from "../components/FotoVeterinario";
@@ -191,21 +192,7 @@ function VeterinarioDetalle() {
                 <Icono nombre="ubicacion" tamano={16} grosor={2} />
                 {veterinario.address}
               </p>
-                <iframe
-                  className="mapa"
-                  title={`Mapa: ${veterinario.address}`}
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                  src={`https://www.google.com/maps?q=${encodeURIComponent(veterinario.address)}&output=embed`}
-                />
-                <a
-                  className="enlace-seccion"
-                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(veterinario.address)}`}
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  Abrir en Google Maps
-                </a>
+                <MapaUbicacion direccion={veterinario.address} />
               </div>
             )}
 

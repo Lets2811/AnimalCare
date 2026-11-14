@@ -11,6 +11,7 @@ router.use(authenticate);
 
 // Dueño (AN-21) y veterinario con cita con la mascota.
 router.get("/pets/:petId", requireRole("CLIENT", "VETERINARIAN"), records.getPetHistory);
+router.get("/pets/:petId/pdf", requireRole("CLIENT", "VETERINARIAN"), records.downloadHistoryPdf);
 
 // Solo el veterinario escribe en la historia.
 router.post("/", requireRole("VETERINARIAN"), records.createRecord); // AN-18

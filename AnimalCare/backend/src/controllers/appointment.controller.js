@@ -161,28 +161,33 @@ async function createAppointment(req, res) {
       });
     }
 
-    // Ultima comprobacion antes de guardar, por si otro cliente tomo el mismo
-    // horario mientras esta persona llenaba el formulario.
-    const libre = await vetService.isSlotFree(idVeterinario, scheduledAt, durationMinutes);
-    if (!libre) {
+    // Ultima comprobacion y guardado bajo el candado del veterinario: si otro cliente toma el mismo
+    // horario al mismo tiempo, uno de los dos recibe el aviso de que ya no esta disponible.
+    const appointment = await vetService.conCandado(idVeterinario, async (tx) => {
+      const libre = await vetService.isSlotFree(idVeterinario, scheduledAt, durationMinutes, null, tx);
+      if (!libre) return null;
+      return appointmentService.createAppointment(
+        {
+          clientId: req.user.id,
+          vetProfileId: idVeterinario,
+          serviceId: service ? service.id : null,
+          petId: pet ? pet.id : null,
+          mode: modalidad,
+          scheduledAt,
+          durationMinutes,
+          // La direccion del consultorio ya esta en el perfil del veterinario:
+          // solo se guarda la del cliente cuando la atencion es a domicilio.
+          address: modalidad === "HOME" ? direccion : null,
+          notes: notas,
+        },
+        tx
+      );
+    });
+    if (!appointment) {
       return res.status(409).json({
         message: "El horario elegido ya no esta disponible. Elige otro.",
       });
     }
-
-    const appointment = await appointmentService.createAppointment({
-      clientId: req.user.id,
-      vetProfileId: idVeterinario,
-      serviceId: service ? service.id : null,
-      petId: pet ? pet.id : null,
-      mode: modalidad,
-      scheduledAt,
-      durationMinutes,
-      // La direccion del consultorio ya esta en el perfil del veterinario:
-      // solo se guarda la del cliente cuando la atencion es a domicilio.
-      address: modalidad === "HOME" ? direccion : null,
-      notes: notas,
-    });
 
     await avisar(
       appointment.vetProfile.user.id,
@@ -347,8 +352,10 @@ async function cancelAppointment(req, res) {
       });
     }
 
+    // Si ya estaba pagada (simulado), se registra el reembolso.
     const cancelada = await appointmentService.updateIfStatus(appointment.id, ACTIVE_STATUSES, {
       status: "CANCELLED",
+      ...(appointment.paidAt && !appointment.refundedAt ? { refundedAt: new Date() } : {}),
     });
     if (!cancelada) {
       return res.status(409).json({ message: "La cita cambió de estado. Actualiza la página." });
@@ -446,20 +453,25 @@ async function rescheduleAppointment(req, res) {
         errors: ["Ese horario está fuera de tu horario de atención."],
       });
     }
-    const libre = await vetService.isSlotFree(
-      appointment.vetProfileId,
-      nuevoInicio,
-      appointment.durationMinutes,
-      appointment.id
-    );
-    if (!libre) {
+    const anterior = cuando(appointment);
+    // Comprobar y mover bajo el candado del veterinario (igual que al agendar).
+    const resultado = await vetService.conCandado(appointment.vetProfileId, async (tx) => {
+      const libre = await vetService.isSlotFree(
+        appointment.vetProfileId,
+        nuevoInicio,
+        appointment.durationMinutes,
+        appointment.id,
+        tx
+      );
+      if (!libre) return { ocupado: true };
+      return {
+        movida: await appointmentService.updateIfStatus(appointment.id, ACTIVE_STATUSES, { scheduledAt: nuevoInicio }, tx),
+      };
+    });
+    if (resultado.ocupado) {
       return res.status(409).json({ message: "Ese horario ya está ocupado o bloqueado. Elige otro." });
     }
-
-    const anterior = cuando(appointment);
-    const movida = await appointmentService.updateIfStatus(appointment.id, ACTIVE_STATUSES, {
-      scheduledAt: nuevoInicio,
-    });
+    const movida = resultado.movida;
     if (!movida) {
       return res.status(409).json({ message: "La cita cambió de estado. Actualiza la página." });
     }
@@ -510,6 +522,46 @@ async function confirmAppointment(req, res) {
     });
   } catch (error) {
     console.error("Error en confirmAppointment:", error);
+    return res.status(500).json({ message: "Ocurrio un error inesperado en el servidor." });
+  }
+}
+
+// POST /api/appointments/:id/pay
+// Pago SIMULADO: no se procesa ninguna tarjeta. Marca la cita como pagada con el valor del servicio
+// y una referencia, para ensayar el flujo completo (pagar, ver el estado, reembolso al cancelar).
+async function payAppointment(req, res) {
+  try {
+    const appointment = await cargarCitaPropia(req, res);
+    if (!appointment) return undefined;
+
+    if (!appointment.service || Number(appointment.service.price) <= 0) {
+      return res.status(409).json({ message: "Esta cita no tiene un valor para pagar." });
+    }
+    if (appointment.paidAt) {
+      return res.status(409).json({ message: "Esta cita ya está pagada." });
+    }
+    if (!ACTIVE_STATUSES.includes(appointment.status)) {
+      return res.status(409).json({ message: "Solo se pagan citas pendientes o confirmadas." });
+    }
+
+    const referencia = `SIM-${appointment.id}-${Date.now().toString(36).toUpperCase()}`;
+    const r = await prisma.appointment.updateMany({
+      where: { id: appointment.id, paidAt: null, status: { in: ACTIVE_STATUSES } },
+      data: { paidAt: new Date(), paidAmount: appointment.service.price, paymentRef: referencia, refundedAt: null },
+    });
+    if (r.count === 0) return res.status(409).json({ message: "La cita cambió. Actualiza la página." });
+
+    const pagada = await appointmentService.findAppointmentById(appointment.id);
+    await avisar(
+      pagada.vetProfile.user.id,
+      `${req.user.name} pagó (simulado) la cita del ${cuando(pagada)}: ${Number(pagada.paidAmount).toLocaleString("es-CO")} COP.`
+    );
+    return res.status(200).json({
+      message: "Pago registrado (simulado). Guarda la referencia: " + referencia + ".",
+      appointment: appointmentService.toPublicAppointment(pagada),
+    });
+  } catch (error) {
+    console.error("Error en payAppointment:", error);
     return res.status(500).json({ message: "Ocurrio un error inesperado en el servidor." });
   }
 }
@@ -699,4 +751,5 @@ module.exports = {
   confirmAppointment,
   startAppointment,
   completeAppointment,
+  payAppointment,
 };

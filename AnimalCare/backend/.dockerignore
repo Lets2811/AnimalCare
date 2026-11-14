@@ -1,0 +1,9 @@
+node_modules
+.env
+.env.*
+uploads
+tests
+scripts/ci-mysql.sh
+*.log
+Dockerfile
+.dockerignore

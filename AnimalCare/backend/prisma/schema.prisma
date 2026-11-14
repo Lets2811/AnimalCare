@@ -231,6 +231,13 @@ model Appointment {
   // Momento en que se envio el recordatorio de 24 horas (null = aun no).
   reminderSentAt DateTime?
 
+  // Pago SIMULADO (no hay pasarela real): el cliente "paga" y queda la referencia.
+  // Si la cita se cancela despues de pagada, se registra el reembolso simulado.
+  paidAt     DateTime?
+  paidAmount Decimal?  @db.Decimal(10, 2)
+  paymentRef String?
+  refundedAt DateTime?
+
   // Resena del cliente, solo despues de que la cita fue atendida.
   review Review?
 

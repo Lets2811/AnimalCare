@@ -335,6 +335,10 @@ JWT_EXPIRES_IN="2h"
 | `MAIL_TRANSPORT` | `console` | `console` o `smtp` |
 | `SMTP_URL`, `MAIL_FROM` | - | Solo con `MAIL_TRANSPORT=smtp` |
 | `LOGIN_MAX_ATTEMPTS`, `LOGIN_LOCK_MINUTES` | `5`, `15` | Limite de intentos de inicio de sesion |
+| `FORGOT_MAX_REQUESTS` | `5` | Pedidos de recuperar contrasena por hora, por IP y correo |
+
+Frontend (`frontend/.env.local`): `VITE_API_URL` (URL de la API) y `VITE_MAPS_CIUDAD` (por defecto
+`Popayán, Cauca, Colombia`): ciudad que se agrega a las direcciones para que Google Maps las ubique bien.
 
 ## Instalacion
 
@@ -368,14 +372,31 @@ cd frontend
 npm run dev
 ```
 
+**Datos de demostracion** (cuentas, mascotas, una cita proxima y una atendida con historia y resena):
+
+```bash
+cd backend
+npm run seed             # crea lo que falte (no toca lo que ya existe)
+npm run seed -- --reset  # borra las cuentas demo.* y las crea de nuevo
+```
+
+Cuentas `demo.admin@`, `demo.cliente@`, `demo.cliente2@`, `demo.vet@`, `demo.vet2@` y `demo.pendiente@animalcare.com`,
+todas con la contrasena `Demo1234`. Solo para desarrollo: se niega a correr con `NODE_ENV=production`.
+
+**Documentacion de la API:** con el backend corriendo, http://localhost:4000/api/docs (Swagger UI, funciona sin
+internet). El archivo es `backend/openapi.json` y se regenera con `npm run openapi`; una prueba falla si una ruta
+del backend no esta documentada.
+
 Con Docker (base de datos, API y frontend con nginx en http://localhost:8080):
 
 ```bash
 docker compose up --build
 ```
 
-La API aplica las migraciones al arrancar; las fotos y tarjetas profesionales quedan en el volumen
-`uploads`. Cambia las contrasenas y `JWT_SECRET` de `docker-compose.yml` antes de usarlo fuera de tu
+La API aplica las migraciones al arrancar (verificado desde una base vacia); las fotos y tarjetas
+profesionales quedan en el volumen `uploads`. Para probar sin chocar con un MySQL local en el 3306, usa otro
+puerto con un archivo `override` (`ports: !override ["3317:3306"]`). Los `.dockerignore` evitan copiar
+`node_modules` y `.env` a las imagenes. Cambia las contrasenas y `JWT_SECRET` de `docker-compose.yml` antes de usarlo fuera de tu
 maquina.
 
 ## Endpoints
@@ -441,6 +462,10 @@ maquina.
 | PATCH  | /api/emergencies/:id/accept | Si   | VETERINARIAN | Acepta una urgencia y ocupa su agenda 30 min (atomico; 409 si otro la tomo; 409 `APPOINTMENT_CONFLICT` si tiene citas en ese rato: reenviar con `{ rescheduleConflicts: true }` las cancela y pide reagendar) |
 | PATCH  | /api/emergencies/:id/complete | Si | VETERINARIAN | La marca como atendida                       |
 | PATCH  | /api/emergencies/:id/release | Si  | VETERINARIAN | La libera: vuelve a abrirse para los demas    |
+| GET    | /api/admin/metrics       | Si      | ADMIN    | Metricas: usuarios, citas, urgencias y calificaciones |
+| GET    | /api/medical-records/pets/:petId/pdf | Si | CLIENT, VETERINARIAN | Historia clinica y carnet de vacunas en PDF |
+| POST   | /api/appointments/:id/pay | Si     | CLIENT   | Pago SIMULADO de una cita con valor (se reembolsa al cancelar) |
+| GET    | /api/docs                | No      | -        | Documentacion Swagger UI de toda la API       |
 | GET    | /api/admin/users         | Si      | ADMIN    | Listado paginado (`page`, `pageSize`) con filtros `status`, `role`, `q` (AN-38) |
 | GET    | /api/admin/users/:id/license-doc | Si | ADMIN | Descarga la tarjeta profesional de un veterinario |
 | PATCH  | /api/admin/users/:id/approve | Si  | ADMIN    | Aprueba un veterinario (AN-35)                   |
@@ -557,6 +582,11 @@ Los creditos y licencias de las fotografias utilizadas estan en
 | API (criterios de aceptacion) | `backend/tests/sprint2.test.js` | `npm test` en `backend/`, con la API corriendo |
 | Unitarias y de componentes del frontend | `frontend/src/**/*.test.{js,jsx}` | `npm run test:unit` en `frontend/` |
 | Extremo a extremo (navegador) | `frontend/e2e/` | `npm run test:e2e` en `frontend/`, con API y frontend corriendo |
+| Documentacion de la API | `backend/tests/openapi.test.js` | `npm test` (compara las rutas con `openapi.json`) |
+| Accesibilidad (axe, WCAG 2 A y AA) | `frontend/e2e/accesibilidad.spec.js` | `npm run test:e2e` |
+| Cobertura del backend | `backend/scripts/coverage.js` | `npm run coverage` en `backend/` (arranca la API en el mismo proceso) |
+| Cobertura del frontend | `frontend/vitest.config.js` | `npm run coverage` en `frontend/` |
+| Matriz de trazabilidad | `docs/matriz-trazabilidad.md` | `npm run matriz` en `backend/` (historia -> criterios -> pruebas) |
 
 Las pruebas de la API leen los correos enviados desde `MAIL_OUTBOX_FILE` (si se define al arrancar la
 API) para seguir los enlaces de verificacion y de recuperacion. Las pruebas e2e crean usuarios `e2e.*`
@@ -569,7 +599,7 @@ request, con una base MySQL temporal. Un pull request con pruebas fallidas queda
 Las evidencias manuales (Postman, capturas) se guardan en la carpeta `docs/`.
 
 Ademas, `backend/tests/sprint2.test.js` recorre automaticamente los criterios de aceptacion del
-Sprint 2, del Sprint 3, de las mejoras y de la cuenta contra la API (146 casos). Con el backend corriendo, desde `backend/`:
+Sprint 2, del Sprint 3, de las mejoras y de la cuenta contra la API (mas de 150 casos). Con el backend corriendo, desde `backend/`:
 
 ```
 npm test

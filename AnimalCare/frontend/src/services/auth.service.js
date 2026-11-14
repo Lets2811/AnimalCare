@@ -54,8 +54,29 @@ export function obtenerUsuario() {
   }
 }
 
+// Lee la fecha de vencimiento (exp) del JWT sin validar la firma: solo sirve para no
+// mostrar pantallas privadas con un token que el backend ya va a rechazar.
+export function tokenVencido(token, ahora = Date.now()) {
+  try {
+    const carga = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    const { exp } = JSON.parse(atob(carga));
+    return typeof exp === "number" && exp * 1000 <= ahora;
+  } catch {
+    return false; // si no se puede leer, que decida el backend
+  }
+}
+
 export function haySesionActiva() {
-  return Boolean(obtenerToken());
+  const token = obtenerToken();
+  if (!token) {
+    return false;
+  }
+  if (tokenVencido(token)) {
+    cerrarSesion();
+    guardarAvisoDeSesion("Tu sesión expiró. Inicia sesión de nuevo para continuar.");
+    return false;
+  }
+  return true;
 }
 
 // El rol decide que panel y que opciones ve la persona que inicio sesion.

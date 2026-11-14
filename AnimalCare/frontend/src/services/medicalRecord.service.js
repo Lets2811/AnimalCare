@@ -8,6 +8,27 @@ export async function obtenerHistoria(petId) {
   return respuesta.data;
 }
 
+// GET /api/medical-records/pets/:id/pdf: se descarga con el token (la ruta es privada) y se guarda el archivo.
+export async function descargarHistoriaPdf(petId, nombreMascota = "mascota") {
+  const respuesta = await api.get(`/medical-records/pets/${petId}/pdf`, { responseType: "blob" });
+  const url = URL.createObjectURL(respuesta.data);
+  const enlace = document.createElement("a");
+  enlace.href = url;
+  enlace.download = `historia-${nombreMascota}.pdf`;
+  document.body.appendChild(enlace);
+  enlace.click();
+  enlace.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
+// Carnet de vacunas: las vacunas anotadas en las consultas vigentes, de la mas reciente a la mas antigua.
+export function carnetDeVacunas(entradas) {
+  return entradas
+    .filter((r) => r.status !== "ANNULLED" && r.vaccines && r.vaccines.trim() !== "")
+    .map((r) => ({ id: r.id, fecha: r.visitDate, vacunas: r.vaccines.trim(), veterinario: r.vet?.name }))
+    .sort((a, b) => b.fecha.localeCompare(a.fecha) || b.id - a.id);
+}
+
 export async function crearEntrada(entrada) {
   const respuesta = await api.post("/medical-records", entrada);
   return respuesta.data;

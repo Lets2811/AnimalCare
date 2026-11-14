@@ -42,10 +42,24 @@ function badRequest(res, errors) {
 
 // Las solicitudes abiertas que pasaron el limite se cierran como vencidas.
 async function expireOld() {
-  await prisma.emergencyRequest.updateMany({
-    where: { status: "OPEN", createdAt: { lt: new Date(Date.now() - TTL_MS) } },
+  const limite = new Date(Date.now() - TTL_MS);
+  const vencidas = await prisma.emergencyRequest.findMany({
+    where: { status: "OPEN", createdAt: { lt: limite } },
+    select: { id: true, clientId: true },
+  });
+  if (vencidas.length === 0) return;
+  const r = await prisma.emergencyRequest.updateMany({
+    where: { id: { in: vencidas.map((v) => v.id) }, status: "OPEN" },
     data: { status: "EXPIRED", closedAt: new Date() },
   });
+  // Se avisa al dueño solo si esta llamada fue la que la cerro (otra peticion pudo adelantarse).
+  if (r.count > 0) {
+    await notificationService.notifyMany(
+      vencidas.map((v) => v.clientId),
+      "Tu urgencia venció sin que un veterinario la aceptara. Si tu mascota está grave, acude de inmediato " +
+        "a la clínica veterinaria más cercana; también puedes pedir otra urgencia."
+    );
+  }
 }
 
 // Veterinarios que pueden recibir una urgencia ahora mismo: cuenta aprobada,
@@ -268,6 +282,12 @@ async function cancelEmergency(req, res) {
     if (!actual) return res.status(404).json({ message: "La urgencia no existe." });
     if (!ACTIVE.includes(actual.status)) {
       return res.status(409).json({ message: "Esta urgencia ya está cerrada." });
+    }
+    if (actual.appointment?.status === "IN_PROGRESS") {
+      return res.status(409).json({
+        message: "Tu mascota ya está siendo atendida: no se puede cancelar. Comunícate con el veterinario si necesitas algo.",
+        code: "EMERGENCY_IN_PROGRESS_ATTENTION",
+      });
     }
 
     const r = await prisma.emergencyRequest.updateMany({

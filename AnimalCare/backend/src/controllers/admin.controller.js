@@ -6,6 +6,10 @@
 const path = require("node:path");
 
 const adminService = require("../services/admin.service");
+const metricsService = require("../services/metrics.service");
+const notificationService = require("../services/notification.service");
+const prisma = require("../prisma");
+const { describeDateTime } = require("../utils/schedule");
 const { parseId } = require("../utils/params");
 const uploads = require("../utils/uploads");
 
@@ -63,6 +67,49 @@ async function listUsers(req, res) {
     });
   } catch (error) {
     return serverError(res, "listUsers", error);
+  }
+}
+
+async function liberarAgendaDe(usuario) {
+  const perfil = await prisma.vetProfile.findUnique({ where: { userId: usuario.id } });
+  if (!perfil) return;
+  const ahora = new Date();
+
+  const citas = await prisma.appointment.findMany({
+    where: { vetProfileId: perfil.id, status: { in: ["PENDING", "CONFIRMED"] }, scheduledAt: { gt: ahora } },
+  });
+  if (citas.length > 0) {
+    await prisma.appointment.updateMany({ where: { id: { in: citas.map((c) => c.id) } }, data: { status: "CANCELLED" } });
+    // Las que estaban pagadas (simulado) se reembolsan.
+    await prisma.appointment.updateMany({
+      where: { id: { in: citas.map((c) => c.id) }, paidAt: { not: null }, refundedAt: null },
+      data: { refundedAt: new Date() },
+    });
+    for (const cita of citas) {
+      await notificationService.notify(
+        cita.clientId,
+        `Tu cita del ${describeDateTime(cita.scheduledAt)} fue cancelada porque ${usuario.name} ya no está disponible en AnimalCare. ` +
+          "Puedes agendar con otro veterinario."
+      );
+    }
+  }
+
+  const urgencias = await prisma.emergencyRequest.findMany({ where: { vetProfileId: perfil.id, status: "ACCEPTED" } });
+  for (const urgencia of urgencias) {
+    await prisma.emergencyRequest.update({
+      where: { id: urgencia.id },
+      data: { status: "OPEN", vetProfileId: null, acceptedAt: null, appointmentId: null, createdAt: ahora },
+    });
+    if (urgencia.appointmentId) {
+      await prisma.appointment.updateMany({
+        where: { id: urgencia.appointmentId, status: { in: ["PENDING", "CONFIRMED", "IN_PROGRESS"] } },
+        data: { status: "CANCELLED" },
+      });
+    }
+    await notificationService.notify(
+      urgencia.clientId,
+      `${usuario.name} ya no puede atender tu urgencia. La abrimos de nuevo para los demás veterinarios disponibles.`
+    );
   }
 }
 
@@ -136,6 +183,12 @@ function crearAccion(nombre) {
         return res.status(409).json({ message: "El usuario cambió de estado. Actualiza la página." });
       }
 
+      // Un veterinario suspendido ya no puede atender: sus citas futuras se cancelan (y se avisa a
+      // los clientes) y las urgencias que tenia aceptadas vuelven a quedar disponibles.
+      if (nombre === "suspend" && usuario.role === "VETERINARIAN") {
+        await liberarAgendaDe(usuario);
+      }
+
       return res.status(200).json({ message: regla.exito, user: adminService.toAdminUser(actualizado) });
     } catch (error) {
       return serverError(res, `admin ${nombre}`, error);
@@ -168,9 +221,19 @@ async function downloadLicenseDoc(req, res) {
   }
 }
 
+// GET /api/admin/metrics: resumen de usuarios, citas, urgencias y calificaciones.
+async function metrics(req, res) {
+  try {
+    return res.status(200).json(await metricsService.getMetrics());
+  } catch (error) {
+    return serverError(res, "metrics", error);
+  }
+}
+
 module.exports = {
   downloadLicenseDoc,
   listUsers,
+  metrics,
   approveUser: crearAccion("approve"),
   rejectUser: crearAccion("reject"),
   suspendUser: crearAccion("suspend"),

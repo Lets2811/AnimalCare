@@ -71,11 +71,12 @@ const loginLimiter = createRateLimit({
   keyFrom: (req) => `${ipDe(req)}|${String(req.body?.email ?? "").trim().toLowerCase()}`,
 });
 
-// Recuperacion de contrasena: cada peticion cuenta (no hay "fallo"), 5 por IP y hora.
+// Recuperacion de contrasena: cada peticion cuenta (no hay "fallo"), 5 por IP y correo cada hora.
+// (Por IP y correo: una oficina o un colegio detras de la misma IP no se bloquean entre si.)
 const forgotLimiter = createRateLimit({
-  max: 5,
+  max: Number(process.env.FORGOT_MAX_REQUESTS) || 5,
   windowMs: 60 * 60 * 1000,
-  keyFrom: (req) => `forgot|${ipDe(req)}`,
+  keyFrom: (req) => `forgot|${ipDe(req)}|${String(req.body?.email ?? "").trim().toLowerCase()}`,
 });
 
 module.exports = { securityHeaders, createRateLimit, loginLimiter, forgotLimiter };

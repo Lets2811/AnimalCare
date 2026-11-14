@@ -15,6 +15,7 @@ const MisCitas = lazy(() => import("./pages/MisCitas"));
 const MisServicios = lazy(() => import("./pages/MisServicios"));
 const MiHorario = lazy(() => import("./pages/MiHorario"));
 const AdminUsuarios = lazy(() => import("./pages/AdminUsuarios"));
+const AdminMetricas = lazy(() => import("./pages/AdminMetricas"));
 const NotificacionesPagina = lazy(() => import("./pages/NotificacionesPagina"));
 const MisMascotas = lazy(() => import("./pages/MisMascotas"));
 const MiPerfil = lazy(() => import("./pages/MiPerfil"));
@@ -172,6 +173,15 @@ function App() {
           element={
             <RutaPrivada roles={["ADMIN"]}>
               <AdminUsuarios />
+            </RutaPrivada>
+          }
+        />
+
+        <Route
+          path="/admin/metricas"
+          element={
+            <RutaPrivada roles={["ADMIN"]}>
+              <AdminMetricas />
             </RutaPrivada>
           }
         />

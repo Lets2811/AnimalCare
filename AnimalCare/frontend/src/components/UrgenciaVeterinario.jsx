@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import Alerta from "./Alerta";
+import MapaUbicacion from "./MapaUbicacion";
 import { useSondeo } from "../hooks/useSondeo";
 import {
   urgenciasAbiertas,
@@ -160,6 +161,7 @@ function UrgenciaVeterinario() {
               {activa.mode === "HOME" && activa.address ? ` · ${activa.address}` : ""}
             </p>
             <p className="texto-suave">“{activa.symptoms}” · aceptada {haceCuanto(activa.acceptedAt)}</p>
+            {activa.mode === "HOME" && <MapaUbicacion direccion={activa.address} modo="ruta" />}
 
             <div className="acciones-linea">
               {activa.pet && activa.appointment?.status === "IN_PROGRESS" && (

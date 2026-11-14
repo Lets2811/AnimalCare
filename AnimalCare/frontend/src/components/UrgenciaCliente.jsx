@@ -2,6 +2,7 @@
 import { useState } from "react";
 
 import Alerta from "./Alerta";
+import MapaUbicacion from "./MapaUbicacion";
 import { useSondeo } from "../hooks/useSondeo";
 import { listarMascotas } from "../services/pet.service";
 import {
@@ -172,6 +173,7 @@ function UrgenciaCliente() {
                 ? `Te espera en ${activa.vet.address || "su veterinaria"}.`
                 : `Va en camino a: ${activa.address}.`}
             </p>
+            {activa.mode === "CLINIC" && <MapaUbicacion direccion={activa.vet.address} />}
             {activa.vet.phone ? (
               <p>
                 Llámalo ahora: <a href={`tel:${activa.vet.phone}`}>{activa.vet.phone}</a>

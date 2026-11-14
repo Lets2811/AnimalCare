@@ -13,5 +13,12 @@ export default defineConfig({
     include: ["src/**/*.test.{js,jsx}"],
     // Las pruebas de extremo a extremo (Playwright) van aparte.
     exclude: ["e2e/**", "node_modules/**"],
+    // npm run coverage: cuanto de src/ ejecutan las pruebas unitarias (reporte en coverage/).
+    coverage: {
+      provider: "v8",
+      include: ["src/**/*.{js,jsx}"],
+      exclude: ["src/**/*.test.{js,jsx}", "src/test/**", "src/main.jsx"],
+      reporter: ["text-summary", "text", "lcov"],
+    },
   },
 });

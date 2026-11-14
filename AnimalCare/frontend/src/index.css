@@ -13,7 +13,7 @@
   --verde-700: #1c6742;
 
   --texto: #1f2a37;
-  --texto-suave: #6b7280;
+  --texto-suave: #5b6472; /* contraste >= 4.5:1 sobre los fondos suaves (WCAG AA) */
   --borde: #e2e8f0;
   --blanco: #ffffff;
 

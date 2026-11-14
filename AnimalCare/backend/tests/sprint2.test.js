@@ -24,7 +24,14 @@ const uploads = require("../src/utils/uploads");
 const { runReminders } = require("../src/services/reminder.service");
 const { toDateString, localWeekday, toTimeOfDay, parseTime } = require("../src/utils/schedule");
 
-const API = process.env.API_URL || `http://localhost:${process.env.PORT || 4000}/api`;
+// Con TEST_IN_PROCESS=1 (npm run coverage) la API arranca dentro del propio proceso de la prueba,
+// para poder medir la cobertura del codigo del servidor. Sin esa variable se usa un servidor ya corriendo.
+const EN_PROCESO = process.env.TEST_IN_PROCESS === "1";
+const PUERTO_PRUEBA = Number(process.env.TEST_PORT) || 4310;
+const API = EN_PROCESO
+  ? `http://localhost:${PUERTO_PRUEBA}/api`
+  : process.env.API_URL || `http://localhost:${process.env.PORT || 4000}/api`;
+let servidorEnProceso = null;
 const RUN = `${Date.now()}`.slice(-7);
 const PREFIJO = `qa.sprint2.${RUN}`;
 const CLAVE = "clave123";
@@ -100,6 +107,14 @@ function registroVeterinario(email, license, name = NOMBRE_VET) {
 }
 
 before(async () => {
+  if (EN_PROCESO) {
+    process.env.JWT_SECRET = process.env.JWT_SECRET || "secreto-de-pruebas";
+    process.env.CORS_ORIGIN = process.env.CORS_ORIGIN || "http://localhost:5173";
+    servidorEnProceso = await new Promise((resolver) => {
+      const servidor = require("../src/app").listen(PUERTO_PRUEBA, () => resolver(servidor));
+    });
+  }
+
   // Si el cliente de Prisma no conoce las tablas del Sprint 2, la limpieza
   // final no podria borrar lo que se cree: se detiene antes de empezar.
   if (!prisma.notification || !prisma.scheduleBlock || !prisma.review || !prisma.medicalRecord || !prisma.medicalAttachment || !prisma.emergencyRequest) {
@@ -146,6 +161,7 @@ before(async () => {
 });
 
 after(async () => {
+  if (servidorEnProceso) await new Promise((resolver) => servidorEnProceso.close(resolver));
   const usuarios = await prisma.user.findMany({
     // Una cuenta eliminada cambia de correo: se busca tambien por el id que creo la prueba.
     where: { OR: [{ email: { startsWith: PREFIJO } }, { id: { in: ctx.creados || [] } }] },
@@ -1239,6 +1255,28 @@ describe("AN-21: el dueño accede a la historia clinica de su mascota", () => {
   });
 });
 
+describe("PDF de la historia clinica y carnet de vacunas", () => {
+  const pdf = (token, petId) =>
+    fetch(`${API}/medical-records/pets/${petId}/pdf`, { headers: { Authorization: `Bearer ${token}` } });
+
+  test("el dueño descarga el PDF de su mascota", async () => {
+    const r = await pdf(ctx.clienteA, ctx.mascota);
+    assert.equal(r.status, 200);
+    assert.equal(r.headers.get("content-type"), "application/pdf");
+    assert.match(r.headers.get("content-disposition"), /attachment; filename="historia-Michi\.pdf"/);
+    const cuerpo = Buffer.from(await r.arrayBuffer());
+    assert.equal(cuerpo.subarray(0, 5).toString(), "%PDF-");
+    assert.ok(cuerpo.length > 1000, "el PDF trae contenido");
+  });
+
+  test("el veterinario con relacion tambien; otro cliente o sin sesion no", async () => {
+    assert.equal((await pdf(ctx.vet, ctx.mascota)).status, 200);
+    assert.equal((await pdf(ctx.clienteB, ctx.mascota)).status, 404);
+    assert.equal((await fetch(`${API}/medical-records/pets/${ctx.mascota}/pdf`)).status, 401);
+    assert.equal((await pdf(ctx.clienteA, "abc")).status, 400);
+  });
+});
+
 describe("AN-20: modificar historia clinica", () => {
   test("el autor modifica su entrada", async () => {
     const r = await http("PUT", `/medical-records/${ctx.entrada}`, {
@@ -2165,6 +2203,25 @@ describe("Urgencias (lo que AN-23 llamaba emergencias)", () => {
     assert.equal((await accion(ctx.clienteA, u.data.emergency.id, "cancel")).status, 200);
   });
 
+  test("el dueño no puede cancelar una urgencia que ya se esta atendiendo", async (t) => {
+    if (!ctx.enHorario) return t.skip("sin horario de prueba");
+    const u = await pedir(ctx.clienteA, { petId: ctx.mascota });
+    assert.equal(u.status, 201, errores(u));
+    assert.equal((await accion(ctx.libre, u.data.emergency.id, "accept")).status, 200);
+    const cita = await citaDe(u.data.emergency.id);
+
+    // Aceptada pero sin iniciar: todavia se puede cancelar... se inicia primero para probar el bloqueo.
+    assert.equal((await http("PATCH", `/appointments/${cita.id}/start`, { token: ctx.libre })).status, 200);
+    const r = await accion(ctx.clienteA, u.data.emergency.id, "cancel");
+    assert.equal(r.status, 409);
+    assert.equal(r.data.code, "EMERGENCY_IN_PROGRESS_ATTENTION");
+
+    // El veterinario la devuelve (no la realizo) y entonces el dueño si puede cancelarla.
+    const devuelta = await http("PATCH", `/appointments/${cita.id}/complete`, { token: ctx.libre, body: { skipRecord: true } });
+    assert.equal(devuelta.status, 200, errores(devuelta));
+    assert.equal((await accion(ctx.clienteA, u.data.emergency.id, "cancel")).status, 200);
+  });
+
   test("una urgencia que nadie acepta a tiempo vence", async (t) => {
     if (!ctx.enHorario) return t.skip("sin horario de prueba");
     const x = await pedir(ctx.clienteA);
@@ -2177,6 +2234,8 @@ describe("Urgencias (lo que AN-23 llamaba emergencias)", () => {
     assert.equal(m.data.active, null);
     // La fecha se retraso a proposito: se busca por id, no por posicion en la lista.
     assert.equal(m.data.emergencies.find((e) => e.id === x.data.emergency.id).status, "EXPIRED");
+    const aviso = await http("GET", "/notifications", { token: ctx.clienteA });
+    assert.match(aviso.data.notifications[0].message, /Tu urgencia venció sin que un veterinario la aceptara/);
     assert.equal((await accion(ctx.ganador, x.data.emergency.id, "accept")).status, 409);
   });
 
@@ -2184,6 +2243,125 @@ describe("Urgencias (lo que AN-23 llamaba emergencias)", () => {
     if (!ctx.enHorario) return t.skip("sin horario de prueba");
     await prisma.availability.deleteMany({ where: { id: { in: ctx.horarios } } });
     assert.equal((await abiertas(ctx.vet)).data.available, false);
+  });
+});
+
+describe("Pago simulado de la cita", () => {
+  test("el cliente paga su cita con servicio; ya no se puede pagar dos veces", async () => {
+    const cliente = await prisma.user.findUnique({ where: { email: ctx.emails.clienteB } });
+    const servicio = await prisma.service.create({
+      data: { name: "Consulta pagable QA", price: 55000, durationMinutes: 30, vetProfileId: ctx.vetProfileId },
+    });
+    const cita = await prisma.appointment.create({
+      data: {
+        mode: "CLINIC",
+        scheduledAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+        durationMinutes: 30,
+        status: "CONFIRMED",
+        clientId: cliente.id,
+        vetProfileId: ctx.vetProfileId,
+        serviceId: servicio.id,
+      },
+    });
+    ctx.citaPago = cita.id;
+
+    const lista = await http("GET", "/appointments", { token: ctx.clienteB });
+    assert.equal(lista.data.appointments.find((c) => c.id === cita.id).payment.status, "PENDING");
+
+    const pagar = await http("POST", `/appointments/${cita.id}/pay`, { token: ctx.clienteB });
+    assert.equal(pagar.status, 200, errores(pagar));
+    assert.equal(pagar.data.appointment.payment.status, "PAID");
+    assert.equal(pagar.data.appointment.payment.amount, 55000);
+    assert.match(pagar.data.appointment.payment.reference, /^SIM-\d+-[A-Z0-9]+$/);
+
+    assert.equal((await http("POST", `/appointments/${cita.id}/pay`, { token: ctx.clienteB })).status, 409, "ya pagada");
+    const aviso = await http("GET", "/notifications", { token: ctx.vet });
+    assert.match(aviso.data.notifications[0].message, /pagó \(simulado\)/);
+  });
+
+  test("solo el dueño de la cita paga; el veterinario y otro cliente no", async () => {
+    assert.equal((await http("POST", `/appointments/${ctx.citaPago}/pay`, { token: ctx.vet })).status, 403);
+    assert.equal((await http("POST", `/appointments/${ctx.citaPago}/pay`, { token: ctx.clienteA })).status, 404);
+    assert.equal((await http("POST", `/appointments/${ctx.citaPago}/pay`)).status, 401);
+  });
+
+  test("una cita sin servicio (sin valor) no se paga", async () => {
+    const cliente = await prisma.user.findUnique({ where: { email: ctx.emails.clienteB } });
+    const sinValor = await prisma.appointment.create({
+      data: { mode: "CLINIC", scheduledAt: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000), durationMinutes: 30, status: "CONFIRMED", clientId: cliente.id, vetProfileId: ctx.vetProfileId },
+    });
+    const r = await http("POST", `/appointments/${sinValor.id}/pay`, { token: ctx.clienteB });
+    assert.equal(r.status, 409);
+    const lista = await http("GET", "/appointments", { token: ctx.clienteB });
+    assert.equal(lista.data.appointments.find((c) => c.id === sinValor.id).payment.status, "NONE");
+    await prisma.appointment.update({ where: { id: sinValor.id }, data: { status: "CANCELLED" } });
+  });
+
+  test("cancelar una cita pagada registra el reembolso simulado", async () => {
+    const r = await http("PATCH", `/appointments/${ctx.citaPago}/cancel`, { token: ctx.vet });
+    assert.equal(r.status, 200, errores(r));
+    assert.equal(r.data.appointment.payment.status, "REFUNDED");
+    assert.equal((await http("POST", `/appointments/${ctx.citaPago}/pay`, { token: ctx.clienteB })).status, 409, "cancelada: no se paga");
+  });
+});
+
+describe("Panel de metricas del administrador", () => {
+  test("el administrador ve el resumen; un cliente o un veterinario no", async () => {
+    const r = await http("GET", "/admin/metrics", { token: ctx.admin });
+    assert.equal(r.status, 200, errores(r));
+    const m = r.data;
+    assert.ok(m.users.clients >= 2 && m.users.veterinarians >= 1 && m.users.admins >= 1);
+    assert.deepEqual(Object.keys(m.users.veterinariansByStatus).sort(), ["ACTIVE", "PENDING", "REJECTED", "SUSPENDED"]);
+    assert.equal(m.appointments.perDay.length, 14, "14 dias, con los vacios en cero");
+    assert.equal(m.appointments.perDay.at(-1).date, toDateString(new Date()));
+    assert.ok(m.appointments.last30Days.total >= m.appointments.last30Days.completed);
+    assert.ok(Array.isArray(m.topVeterinarians));
+    assert.ok("reviews" in m && "emergencies" in m);
+
+    assert.equal((await http("GET", "/admin/metrics", { token: ctx.clienteA })).status, 403);
+    assert.equal((await http("GET", "/admin/metrics", { token: ctx.vet })).status, 403);
+    assert.equal((await http("GET", "/admin/metrics")).status, 401);
+  });
+
+  test("cuenta las citas atendidas y las calificaciones", async () => {
+    const m = (await http("GET", "/admin/metrics", { token: ctx.admin })).data;
+    assert.ok(m.appointments.last30Days.completed >= 1, "hay citas atendidas en la base de pruebas");
+    assert.ok(m.reviews.count >= 1 && m.reviews.average >= 1 && m.reviews.average <= 5);
+  });
+});
+
+describe("Robustez: reservas simultaneas y limites", () => {
+  test("dos clientes que reservan la misma hora a la vez: solo uno la consigue", async () => {
+    const slots = await http("GET", `/vets/${ctx.vetProfileId}/slots?date=${VIERNES}&mode=CLINIC`, { token: ctx.clienteA });
+    assert.ok(slots.data.slots.length > 0, "el veterinario tiene horarios libres ese viernes");
+    const hora = slots.data.slots.at(-1);
+    const reserva = (token) =>
+      http("POST", "/appointments", {
+        token,
+        body: { vetProfileId: ctx.vetProfileId, mode: "CLINIC", date: VIERNES, time: hora },
+      });
+
+    const [a, b] = await Promise.all([reserva(ctx.clienteA), reserva(ctx.clienteB)]);
+    assert.deepEqual([a.status, b.status].sort(), [201, 409], `${JSON.stringify([a.data, b.data])}`);
+    const ocupadas = await prisma.appointment.count({
+      where: { vetProfileId: ctx.vetProfileId, status: { in: ["PENDING", "CONFIRMED"] }, scheduledAt: { gte: new Date(`${VIERNES}T00:00:00-05:00`), lt: new Date(`${VIERNES}T23:59:00-05:00`) } },
+    });
+    assert.ok(ocupadas >= 1);
+    const ganada = a.status === 201 ? a : b;
+    const tokenGanador = a.status === 201 ? ctx.clienteA : ctx.clienteB;
+    // Se libera para no alterar las pruebas siguientes.
+    assert.equal((await http("PATCH", `/appointments/${ganada.data.appointment.id}/cancel`, { token: tokenGanador })).status, 200);
+  });
+
+  test("recuperar contraseña: tras 5 pedidos para el mismo correo se limita, sin revelar si existe", async () => {
+    const correo = `${PREFIJO}.limite@test.com`;
+    for (let i = 0; i < 5; i += 1) {
+      assert.equal((await http("POST", "/auth/forgot-password", { body: { email: correo } })).status, 200);
+    }
+    const sexto = await http("POST", "/auth/forgot-password", { body: { email: correo } });
+    assert.equal(sexto.status, 429);
+    // Otro correo desde la misma IP no queda bloqueado.
+    assert.equal((await http("POST", "/auth/forgot-password", { body: { email: `${PREFIJO}.otro@test.com` } })).status, 200);
   });
 });
 
@@ -2205,9 +2383,31 @@ describe("AN-37: suspension y bloqueo de cuentas", () => {
     assert.match(intento.data.message, /suspendida/);
   });
 
-  test("un veterinario suspendido desaparece de las busquedas", async () => {
+  test("al suspender a un veterinario sus citas futuras se cancelan y se avisa a los clientes", async () => {
+    const cliente = await prisma.user.findUnique({ where: { email: ctx.emails.clienteB } });
+    const futura = await prisma.appointment.create({
+      data: {
+        mode: "CLINIC",
+        scheduledAt: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
+        durationMinutes: 30,
+        status: "CONFIRMED",
+        clientId: cliente.id,
+        vetProfileId: ctx.vetProfileId,
+      },
+    });
     const r = await http("PATCH", `/admin/users/${ctx.vetUserId}/suspend`, { token: ctx.admin });
     assert.equal(r.status, 200);
+    assert.equal((await prisma.appointment.findUnique({ where: { id: futura.id } })).status, "CANCELLED");
+    const pendientes = await prisma.appointment.count({
+      where: { vetProfileId: ctx.vetProfileId, status: { in: ["PENDING", "CONFIRMED"] }, scheduledAt: { gt: new Date() } },
+    });
+    assert.equal(pendientes, 0, "no queda ninguna cita futura activa");
+    const avisos = await http("GET", "/notifications", { token: ctx.clienteB });
+    assert.ok(avisos.data.notifications.some((n) => /ya no está disponible en AnimalCare/.test(n.message)));
+  });
+
+  test("un veterinario suspendido desaparece de las busquedas", async () => {
+    // Ya quedo suspendido en la prueba anterior: se confirma que no aparece en el buscador.
     const lista = await http("GET", `/vets?q=${encodeURIComponent(NOMBRE_VET)}`, { token: ctx.clienteB });
     assert.equal(lista.data.total, 0);
   });

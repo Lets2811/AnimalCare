@@ -8,6 +8,7 @@ import { Link } from "react-router-dom";
 import Cabecera from "../components/Cabecera";
 import Alerta from "../components/Alerta";
 import CitaTarjeta from "../components/CitaTarjeta";
+import AgendaSemanal from "../components/AgendaSemanal";
 import Icono from "../components/Icono";
 import { usarTitulo } from "../hooks/usarTitulo";
 import { obtenerUsuario } from "../services/auth.service";
@@ -58,6 +59,28 @@ function agruparPorDia(lista) {
   return grupos;
 }
 
+// Veterinario: alterna entre la agenda de un dia (con acciones) y la vista de la semana.
+function SelectorVista({ vista, onCambiar }) {
+  return (
+    <div className="selector-vista" role="group" aria-label="Vista de la agenda">
+      {[
+        ["dia", "Día"],
+        ["semana", "Semana"],
+      ].map(([valor, texto]) => (
+        <button
+          key={valor}
+          type="button"
+          className={`boton boton-auto ${vista === valor ? "boton-seleccionado" : "boton-secundario"}`}
+          aria-pressed={vista === valor}
+          onClick={() => onCambiar(valor)}
+        >
+          {texto}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 function MisCitas() {
   const usuario = obtenerUsuario();
   const esVeterinario = usuario?.role === "VETERINARIAN";
@@ -68,6 +91,8 @@ function MisCitas() {
   const [filtro, setFiltro] = useState("ACTIVAS");
   // Cliente: "proximas" o "historial".
   const [pestana, setPestana] = useState("proximas");
+  // Veterinario: "dia" (con acciones) o "semana" (calendario).
+  const [vista, setVista] = useState("dia");
 
   const [citas, setCitas] = useState([]);
   const [errores, setErrores] = useState([]);
@@ -152,6 +177,30 @@ function MisCitas() {
     { valor: "historial", texto: "Historial", total: historialCliente.length },
   ];
 
+  if (esVeterinario && vista === "semana") {
+    return (
+      <div className="pagina">
+        <Cabecera />
+        <main className="contenedor contenedor-ancho">
+          <div className="tarjeta">
+            <div className="encabezado-seccion">
+              <h1>Mi agenda</h1>
+              <SelectorVista vista={vista} onCambiar={setVista} />
+            </div>
+            <p className="texto-suave">Tu semana de un vistazo. Elige una cita o un día para verlo en detalle y gestionarlo.</p>
+          </div>
+          <AgendaSemanal
+            inicial={dia || hoyLocal()}
+            onElegirDia={(fecha) => {
+              setDia(fecha);
+              setVista("dia");
+            }}
+          />
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="pagina">
       <Cabecera />
@@ -167,6 +216,7 @@ function MisCitas() {
                 Agendar nueva cita
               </Link>
             )}
+            {esVeterinario && <SelectorVista vista={vista} onCambiar={setVista} />}
           </div>
           <p className="texto-suave">
             {esVeterinario

@@ -12,7 +12,14 @@ import Alerta from "../components/Alerta";
 import Adjuntos from "../components/Adjuntos";
 import Icono from "../components/Icono";
 import { obtenerUsuario } from "../services/auth.service";
-import { obtenerHistoria, crearEntrada, modificarEntrada, eliminarEntrada } from "../services/medicalRecord.service";
+import {
+  obtenerHistoria,
+  crearEntrada,
+  modificarEntrada,
+  eliminarEntrada,
+  descargarHistoriaPdf,
+  carnetDeVacunas,
+} from "../services/medicalRecord.service";
 import IconoEspecie from "../components/IconoEspecie";
 import { calcularEdad } from "../services/pet.service";
 import { formatearFecha, hoyLocal, completarCita } from "../services/appointment.service";
@@ -407,6 +414,7 @@ function HistoriaClinica() {
 
   const pet = historia?.pet;
   const vigentes = historia ? historia.records.filter((r) => r.status !== "ANNULLED") : [];
+  const vacunas = historia ? carnetDeVacunas(historia.records) : [];
   const anuladas = historia ? historia.records.filter((r) => r.status === "ANNULLED") : [];
   const citaInicial = parametros.get("cita");
   const citaElegida = historia?.pendingAppointments?.find((c) => String(c.id) === citaInicial);
@@ -457,6 +465,18 @@ function HistoriaClinica() {
                     <button type="button" className="boton boton-primario boton-auto" onClick={() => setFormulario("nueva")}>
                       <Icono nombre="mas" tamano={18} grosor={2.4} />
                       Registrar consulta
+                    </button>
+                  )}
+                  {vigentes.length > 0 && (
+                    <button
+                      type="button"
+                      className="boton boton-secundario boton-auto"
+                      onClick={() =>
+                        descargarHistoriaPdf(id, pet.name).catch((error) => setErrores(obtenerMensajesDeError(error)))
+                      }
+                    >
+                      <Icono nombre="documento" tamano={18} />
+                      Descargar PDF
                     </button>
                   )}
                   {!esVeterinario && vigentes.length > 0 && (
@@ -557,6 +577,21 @@ function HistoriaClinica() {
                   onGuardar={(datos) => guardarEdicion(formulario.id, datos)}
                   onCancelar={() => setFormulario(null)}
                 />
+              </div>
+            )}
+
+            {vacunas.length > 0 && (
+              <div className="tarjeta">
+                <h3>Carnet de vacunas</h3>
+                <ul className="vacunas">
+                  {vacunas.map((v) => (
+                    <li key={v.id}>
+                      <strong>{formatearFecha(v.fecha)}</strong>
+                      <span>{v.vacunas}</span>
+                      {v.veterinario && <span className="texto-suave">{v.veterinario}</span>}
+                    </li>
+                  ))}
+                </ul>
               </div>
             )}
 

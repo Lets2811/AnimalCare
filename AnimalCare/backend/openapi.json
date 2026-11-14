@@ -1,0 +1,3240 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "AnimalCare API",
+    "version": "1.0.0",
+    "description": "API REST de AnimalCare. Todas las fechas y horas son de la clínica (America/Bogota). Para probar en Swagger UI: inicia sesión con POST /auth/login, copia el token y pulsa Authorize."
+  },
+  "servers": [
+    {
+      "url": "/api"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "Sistema"
+        ],
+        "summary": "Estado de la API y de la base de datos",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/auth/register": {
+      "post": {
+        "tags": [
+          "Autenticación"
+        ],
+        "summary": "Registra un cliente o un veterinario (acepta la política de privacidad)",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "string"
+                  },
+                  "email": {
+                    "type": "string",
+                    "description": "string"
+                  },
+                  "password": {
+                    "type": "string",
+                    "description": "string (mín. 6, con un número)"
+                  },
+                  "acceptPrivacy": {
+                    "type": "string",
+                    "description": "boolean"
+                  },
+                  "role": {
+                    "type": "string",
+                    "description": "CLIENT | VETERINARIAN"
+                  },
+                  "license": {
+                    "type": "string",
+                    "description": "string (veterinarios)"
+                  },
+                  "specialty": {
+                    "type": "string",
+                    "description": "string (veterinarios)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/auth/login": {
+      "post": {
+        "tags": [
+          "Autenticación"
+        ],
+        "summary": "Inicia sesión y devuelve un JWT (5 fallos por IP y correo = 429)",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "description": "string"
+                  },
+                  "password": {
+                    "type": "string",
+                    "description": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/auth/forgot-password": {
+      "post": {
+        "tags": [
+          "Autenticación"
+        ],
+        "summary": "Envía el enlace para restablecer la contraseña (responde igual exista o no el correo; 5 por hora y correo)",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "description": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/auth/reset-password": {
+      "post": {
+        "tags": [
+          "Autenticación"
+        ],
+        "summary": "Cambia la contraseña con el token recibido por correo",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "description": "string"
+                  },
+                  "password": {
+                    "type": "string",
+                    "description": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/auth/verify-email": {
+      "post": {
+        "tags": [
+          "Autenticación"
+        ],
+        "summary": "Confirma el correo con el token recibido",
+        "security": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "description": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/auth/me": {
+      "get": {
+        "tags": [
+          "Autenticación"
+        ],
+        "summary": "Datos de la sesión actual",
+        "description": "Roles: CLIENT, VETERINARIAN, ADMIN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/account": {
+      "put": {
+        "tags": [
+          "Cuenta"
+        ],
+        "summary": "Actualiza el nombre y el correo de la cuenta",
+        "description": "Roles: CLIENT, VETERINARIAN, ADMIN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "string"
+                  },
+                  "email": {
+                    "type": "string",
+                    "description": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Cuenta"
+        ],
+        "summary": "Elimina la cuenta (anonimiza los datos y cancela citas futuras)",
+        "description": "Roles: CLIENT, VETERINARIAN, ADMIN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "password": {
+                    "type": "string",
+                    "description": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/account/password": {
+      "put": {
+        "tags": [
+          "Cuenta"
+        ],
+        "summary": "Cambia la contraseña (pide la actual)",
+        "description": "Roles: CLIENT, VETERINARIAN, ADMIN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "currentPassword": {
+                    "type": "string",
+                    "description": "string"
+                  },
+                  "newPassword": {
+                    "type": "string",
+                    "description": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/account/resend-verification": {
+      "post": {
+        "tags": [
+          "Cuenta"
+        ],
+        "summary": "Reenvía el correo de verificación",
+        "description": "Roles: CLIENT, VETERINARIAN, ADMIN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/pets": {
+      "get": {
+        "tags": [
+          "Mascotas"
+        ],
+        "summary": "Mascotas del dueño",
+        "description": "Roles: CLIENT.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Mascotas"
+        ],
+        "summary": "Registra una mascota",
+        "description": "Roles: CLIENT.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "string"
+                  },
+                  "species": {
+                    "type": "string",
+                    "description": "string"
+                  },
+                  "sex": {
+                    "type": "string",
+                    "description": "string"
+                  },
+                  "birthDate": {
+                    "type": "string",
+                    "description": "AAAA-MM-DD"
+                  },
+                  "weight": {
+                    "type": "string",
+                    "description": "number?"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/pets/{id}": {
+      "put": {
+        "tags": [
+          "Mascotas"
+        ],
+        "summary": "Modifica una mascota propia",
+        "description": "Roles: CLIENT.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "string"
+                  },
+                  "species": {
+                    "type": "string",
+                    "description": "string"
+                  },
+                  "sex": {
+                    "type": "string",
+                    "description": "string"
+                  },
+                  "birthDate": {
+                    "type": "string",
+                    "description": "AAAA-MM-DD"
+                  },
+                  "weight": {
+                    "type": "string",
+                    "description": "number?"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Mascotas"
+        ],
+        "summary": "Retira una mascota (queda inactiva, se conserva la historia)",
+        "description": "Roles: CLIENT.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/vets": {
+      "get": {
+        "tags": [
+          "Veterinarios"
+        ],
+        "summary": "Busca veterinarios (q, specialty, mode, zone, maxPrice, sort, page)",
+        "description": "Roles: CLIENT, VETERINARIAN, ADMIN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/vets/{id}": {
+      "get": {
+        "tags": [
+          "Veterinarios"
+        ],
+        "summary": "Perfil público de un veterinario aprobado",
+        "description": "Roles: CLIENT, VETERINARIAN, ADMIN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/vets/{id}/slots": {
+      "get": {
+        "tags": [
+          "Veterinarios"
+        ],
+        "summary": "Horarios libres de un día (date, mode, serviceId)",
+        "description": "Roles: CLIENT, VETERINARIAN, ADMIN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/vets/{id}/days": {
+      "get": {
+        "tags": [
+          "Veterinarios"
+        ],
+        "summary": "Próximos 14 días con la cantidad de horarios libres",
+        "description": "Roles: CLIENT, VETERINARIAN, ADMIN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/vets/me/profile": {
+      "get": {
+        "tags": [
+          "Panel del veterinario"
+        ],
+        "summary": "Mi perfil profesional",
+        "description": "Roles: VETERINARIAN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Panel del veterinario"
+        ],
+        "summary": "Actualiza mi perfil (bio, especialidad, teléfono, dirección, modalidades)",
+        "description": "Roles: VETERINARIAN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "specialty": {
+                    "type": "string",
+                    "description": "string"
+                  },
+                  "bio": {
+                    "type": "string",
+                    "description": "string?"
+                  },
+                  "phone": {
+                    "type": "string",
+                    "description": "string?"
+                  },
+                  "address": {
+                    "type": "string",
+                    "description": "string?"
+                  },
+                  "homeService": {
+                    "type": "string",
+                    "description": "boolean"
+                  },
+                  "clinicService": {
+                    "type": "string",
+                    "description": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/vets/me/photo": {
+      "put": {
+        "tags": [
+          "Panel del veterinario"
+        ],
+        "summary": "Sube mi foto de perfil (data URL JPG/PNG)",
+        "description": "Roles: VETERINARIAN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "description": "data URL"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Panel del veterinario"
+        ],
+        "summary": "Quita mi foto",
+        "description": "Roles: VETERINARIAN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/vets/me/license-doc": {
+      "put": {
+        "tags": [
+          "Panel del veterinario"
+        ],
+        "summary": "Sube mi tarjeta profesional (privada)",
+        "description": "Roles: VETERINARIAN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "description": "data URL"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/vets/me/services": {
+      "get": {
+        "tags": [
+          "Panel del veterinario"
+        ],
+        "summary": "Mis servicios",
+        "description": "Roles: VETERINARIAN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Panel del veterinario"
+        ],
+        "summary": "Agrega un servicio con precio",
+        "description": "Roles: VETERINARIAN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "string"
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "string?"
+                  },
+                  "price": {
+                    "type": "string",
+                    "description": "number"
+                  },
+                  "durationMinutes": {
+                    "type": "string",
+                    "description": "number"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/vets/me/services/{serviceId}": {
+      "put": {
+        "tags": [
+          "Panel del veterinario"
+        ],
+        "summary": "Modifica un servicio",
+        "description": "Roles: VETERINARIAN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "serviceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string",
+                    "description": "string"
+                  },
+                  "description": {
+                    "type": "string",
+                    "description": "string?"
+                  },
+                  "price": {
+                    "type": "string",
+                    "description": "number"
+                  },
+                  "durationMinutes": {
+                    "type": "string",
+                    "description": "number"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Panel del veterinario"
+        ],
+        "summary": "Elimina un servicio (las citas conservan su detalle)",
+        "description": "Roles: VETERINARIAN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "serviceId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/vets/me/availability": {
+      "get": {
+        "tags": [
+          "Panel del veterinario"
+        ],
+        "summary": "Mi horario semanal (Mi horario)",
+        "description": "Roles: VETERINARIAN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Panel del veterinario"
+        ],
+        "summary": "Reemplaza mi horario semanal",
+        "description": "Roles: VETERINARIAN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "availabilities": {
+                    "type": "string",
+                    "description": "[{ weekday, startTime, endTime }]"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/vets/me/blocks": {
+      "get": {
+        "tags": [
+          "Panel del veterinario"
+        ],
+        "summary": "Mis bloqueos de agenda",
+        "description": "Roles: VETERINARIAN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Panel del veterinario"
+        ],
+        "summary": "Crea un bloqueo (con confirmación si hay citas en el rango)",
+        "description": "Roles: VETERINARIAN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "startsAt": {
+                    "type": "string",
+                    "description": "datetime"
+                  },
+                  "endsAt": {
+                    "type": "string",
+                    "description": "datetime"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "description": "string?"
+                  },
+                  "cancelAppointments": {
+                    "type": "string",
+                    "description": "boolean?"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/vets/me/blocks/{blockId}": {
+      "delete": {
+        "tags": [
+          "Panel del veterinario"
+        ],
+        "summary": "Quita un bloqueo",
+        "description": "Roles: VETERINARIAN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "blockId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/appointments": {
+      "post": {
+        "tags": [
+          "Citas"
+        ],
+        "summary": "Agenda una cita (reservas simultáneas de la misma hora: solo una se acepta)",
+        "description": "Roles: CLIENT.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "vetProfileId": {
+                    "type": "string",
+                    "description": "number"
+                  },
+                  "date": {
+                    "type": "string",
+                    "description": "AAAA-MM-DD"
+                  },
+                  "time": {
+                    "type": "string",
+                    "description": "HH:MM"
+                  },
+                  "mode": {
+                    "type": "string",
+                    "description": "CLINIC | HOME"
+                  },
+                  "serviceId": {
+                    "type": "string",
+                    "description": "number?"
+                  },
+                  "petId": {
+                    "type": "string",
+                    "description": "number?"
+                  },
+                  "address": {
+                    "type": "string",
+                    "description": "string (HOME)"
+                  },
+                  "notes": {
+                    "type": "string",
+                    "description": "string?"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      },
+      "get": {
+        "tags": [
+          "Citas"
+        ],
+        "summary": "Mis citas (cliente) o mi agenda (veterinario); filtros date y status",
+        "description": "Roles: CLIENT, VETERINARIAN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/appointments/{id}/cancel": {
+      "patch": {
+        "tags": [
+          "Citas"
+        ],
+        "summary": "Cancela una cita (el cliente hasta 2 h antes; si estaba pagada se reembolsa)",
+        "description": "Roles: CLIENT, VETERINARIAN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "description": "string?"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/appointments/{id}/reschedule": {
+      "patch": {
+        "tags": [
+          "Citas"
+        ],
+        "summary": "El veterinario reprograma una cita",
+        "description": "Roles: VETERINARIAN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "date": {
+                    "type": "string",
+                    "description": "AAAA-MM-DD"
+                  },
+                  "time": {
+                    "type": "string",
+                    "description": "HH:MM"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "description": "string?"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/appointments/{id}/confirm": {
+      "patch": {
+        "tags": [
+          "Citas"
+        ],
+        "summary": "El veterinario confirma una cita pendiente",
+        "description": "Roles: VETERINARIAN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/appointments/{id}/start": {
+      "patch": {
+        "tags": [
+          "Citas"
+        ],
+        "summary": "Inicia la atención (desde la hora de la cita): pasa a IN_PROGRESS",
+        "description": "Roles: VETERINARIAN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/appointments/{id}/complete": {
+      "patch": {
+        "tags": [
+          "Citas"
+        ],
+        "summary": "Termina la atención; con mascota exige la entrada de historia o skipRecord (una urgencia sin registrar se devuelve)",
+        "description": "Roles: VETERINARIAN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "skipRecord": {
+                    "type": "string",
+                    "description": "boolean?"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/appointments/{id}/pay": {
+      "post": {
+        "tags": [
+          "Citas"
+        ],
+        "summary": "Pago SIMULADO de una cita con valor (no procesa tarjetas)",
+        "description": "Roles: CLIENT.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/appointments/{id}/review": {
+      "post": {
+        "tags": [
+          "Citas"
+        ],
+        "summary": "Califica una cita atendida (1 a 5)",
+        "description": "Roles: CLIENT.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "rating": {
+                    "type": "string",
+                    "description": "1-5"
+                  },
+                  "comment": {
+                    "type": "string",
+                    "description": "string?"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/notifications": {
+      "get": {
+        "tags": [
+          "Notificaciones"
+        ],
+        "summary": "Mis notificaciones y el contador de no leídas",
+        "description": "Roles: CLIENT, VETERINARIAN, ADMIN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/notifications/read-all": {
+      "patch": {
+        "tags": [
+          "Notificaciones"
+        ],
+        "summary": "Marca todas como leídas",
+        "description": "Roles: CLIENT, VETERINARIAN, ADMIN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/notifications/{id}/read": {
+      "patch": {
+        "tags": [
+          "Notificaciones"
+        ],
+        "summary": "Marca una como leída",
+        "description": "Roles: CLIENT, VETERINARIAN, ADMIN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/medical-records/pets/{petId}": {
+      "get": {
+        "tags": [
+          "Historias clínicas"
+        ],
+        "summary": "Historia de una mascota (dueño: vigentes; veterinario: todas, citas por registrar y en atención)",
+        "description": "Roles: CLIENT, VETERINARIAN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "petId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/medical-records/pets/{petId}/pdf": {
+      "get": {
+        "tags": [
+          "Historias clínicas"
+        ],
+        "summary": "Descarga la historia y el carnet de vacunas en PDF",
+        "description": "Roles: CLIENT, VETERINARIAN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "petId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/medical-records": {
+      "post": {
+        "tags": [
+          "Historias clínicas"
+        ],
+        "summary": "Crea la entrada de una cita en atención o atendida (appointmentId obligatorio)",
+        "description": "Roles: VETERINARIAN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "petId": {
+                    "type": "string",
+                    "description": "number"
+                  },
+                  "appointmentId": {
+                    "type": "string",
+                    "description": "number"
+                  },
+                  "reason": {
+                    "type": "string",
+                    "description": "string"
+                  },
+                  "diagnosis": {
+                    "type": "string",
+                    "description": "string"
+                  },
+                  "treatment": {
+                    "type": "string",
+                    "description": "string?"
+                  },
+                  "weight": {
+                    "type": "string",
+                    "description": "number?"
+                  },
+                  "temperature": {
+                    "type": "string",
+                    "description": "number?"
+                  },
+                  "vaccines": {
+                    "type": "string",
+                    "description": "string?"
+                  },
+                  "observations": {
+                    "type": "string",
+                    "description": "string?"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/medical-records/{id}": {
+      "put": {
+        "tags": [
+          "Historias clínicas"
+        ],
+        "summary": "Modifica una entrada propia",
+        "description": "Roles: VETERINARIAN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "description": "string"
+                  },
+                  "diagnosis": {
+                    "type": "string",
+                    "description": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/medical-records/{id}/annul": {
+      "patch": {
+        "tags": [
+          "Historias clínicas"
+        ],
+        "summary": "Elimina (anula) una entrada propia con motivo",
+        "description": "Roles: VETERINARIAN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "reason": {
+                    "type": "string",
+                    "description": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/medical-records/{id}/attachments": {
+      "post": {
+        "tags": [
+          "Historias clínicas"
+        ],
+        "summary": "Adjunta un examen (PDF/JPG/PNG, 5 MB, hasta 10 por entrada)",
+        "description": "Roles: VETERINARIAN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "file": {
+                    "type": "string",
+                    "description": "data URL"
+                  },
+                  "name": {
+                    "type": "string",
+                    "description": "string?"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/medical-records/attachments/{attachmentId}": {
+      "get": {
+        "tags": [
+          "Historias clínicas"
+        ],
+        "summary": "Descarga un adjunto (privado)",
+        "description": "Roles: CLIENT, VETERINARIAN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "attachmentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Historias clínicas"
+        ],
+        "summary": "Quita un adjunto",
+        "description": "Roles: VETERINARIAN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "attachmentId",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/emergencies/availability": {
+      "get": {
+        "tags": [
+          "Urgencias"
+        ],
+        "summary": "Cuántos veterinarios atienden ahora según su horario",
+        "description": "Roles: CLIENT.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/emergencies": {
+      "post": {
+        "tags": [
+          "Urgencias"
+        ],
+        "summary": "Pide una urgencia (la mascota es obligatoria)",
+        "description": "Roles: CLIENT.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "petId": {
+                    "type": "string",
+                    "description": "number"
+                  },
+                  "symptoms": {
+                    "type": "string",
+                    "description": "string (10-500)"
+                  },
+                  "mode": {
+                    "type": "string",
+                    "description": "CLINIC | HOME"
+                  },
+                  "address": {
+                    "type": "string",
+                    "description": "string (HOME)"
+                  },
+                  "phone": {
+                    "type": "string",
+                    "description": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/emergencies/{id}/cancel": {
+      "patch": {
+        "tags": [
+          "Urgencias"
+        ],
+        "summary": "El dueño cancela (no si ya se está atendiendo)",
+        "description": "Roles: CLIENT.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/emergencies/mine": {
+      "get": {
+        "tags": [
+          "Urgencias"
+        ],
+        "summary": "Mis urgencias (dueño) o las que acepté (veterinario)",
+        "description": "Roles: CLIENT, VETERINARIAN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/emergencies/open": {
+      "get": {
+        "tags": [
+          "Urgencias"
+        ],
+        "summary": "Urgencias abiertas para el veterinario disponible",
+        "description": "Roles: VETERINARIAN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/emergencies/{id}/accept": {
+      "patch": {
+        "tags": [
+          "Urgencias"
+        ],
+        "summary": "Acepta una urgencia y ocupa la agenda 30 min (409 APPOINTMENT_CONFLICT si hay citas: reenviar con rescheduleConflicts)",
+        "description": "Roles: VETERINARIAN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "rescheduleConflicts": {
+                    "type": "string",
+                    "description": "boolean?"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/emergencies/{id}/complete": {
+      "patch": {
+        "tags": [
+          "Urgencias"
+        ],
+        "summary": "Marca como atendida una urgencia sin mascota (con mascota se termina desde la cita)",
+        "description": "Roles: VETERINARIAN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/emergencies/{id}/release": {
+      "patch": {
+        "tags": [
+          "Urgencias"
+        ],
+        "summary": "Libera la urgencia (antes de iniciar la atención)",
+        "description": "Roles: VETERINARIAN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/admin/metrics": {
+      "get": {
+        "tags": [
+          "Administración"
+        ],
+        "summary": "Métricas: usuarios, citas, urgencias y calificaciones",
+        "description": "Roles: ADMIN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/admin/users": {
+      "get": {
+        "tags": [
+          "Administración"
+        ],
+        "summary": "Lista usuarios con filtros (status, role, q, page)",
+        "description": "Roles: ADMIN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/admin/users/{id}/license-doc": {
+      "get": {
+        "tags": [
+          "Administración"
+        ],
+        "summary": "Descarga la tarjeta profesional de un veterinario",
+        "description": "Roles: ADMIN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/admin/users/{id}/approve": {
+      "patch": {
+        "tags": [
+          "Administración"
+        ],
+        "summary": "Aprueba un veterinario",
+        "description": "Roles: ADMIN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/admin/users/{id}/reject": {
+      "patch": {
+        "tags": [
+          "Administración"
+        ],
+        "summary": "Rechaza un veterinario pendiente",
+        "description": "Roles: ADMIN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/admin/users/{id}/suspend": {
+      "patch": {
+        "tags": [
+          "Administración"
+        ],
+        "summary": "Suspende una cuenta (cancela las citas futuras del veterinario y devuelve sus urgencias)",
+        "description": "Roles: ADMIN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/admin/users/{id}/reactivate": {
+      "patch": {
+        "tags": [
+          "Administración"
+        ],
+        "summary": "Reactiva una cuenta suspendida",
+        "description": "Roles: ADMIN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    }
+  }
+}

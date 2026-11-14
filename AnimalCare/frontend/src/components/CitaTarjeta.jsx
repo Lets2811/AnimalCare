@@ -17,6 +17,7 @@ import { MODALIDADES, obtenerHorarios } from "../services/vet.service";
 import {
   ESTADOS_CITA,
   formatearFecha,
+  esActiva,
   esCancelable,
   esCompletable,
   cancelarCita,
@@ -24,12 +25,16 @@ import {
   confirmarCita,
   iniciarCita,
   completarCita,
+  pagarCita,
+  ESTADOS_PAGO,
+  formatoPesos,
   calificarCita,
   clientePuedeCancelar,
   HORAS_MINIMAS_CANCELACION,
   hoyLocal,
 } from "../services/appointment.service";
 import Icono from "./Icono";
+import MapaUbicacion from "./MapaUbicacion";
 import { Star } from "lucide-react";
 import IconoEspecie from "./IconoEspecie";
 import Estrellas from "./Estrellas";
@@ -202,6 +207,9 @@ function CitaTarjeta({ cita, perspectiva = "cliente", onActualizada }) {
   const cancelable = conAcciones && (esVistaDelVeterinario ? esCancelable(cita) : clientePuedeCancelar(cita));
   const fueraDePlazo = conAcciones && !esVistaDelVeterinario && esCancelable(cita) && !clientePuedeCancelar(cita);
   const calificable = conAcciones && !esVistaDelVeterinario && cita.status === "COMPLETED" && !cita.review;
+  // Pago simulado: el dueño paga las citas con valor que siguen activas.
+  const pago = cita.payment && cita.payment.status !== "NONE" ? cita.payment : null;
+  const pagable = conAcciones && !esVistaDelVeterinario && pago?.status === "PENDING" && esActiva(cita);
   const confirmable = conAcciones && esVistaDelVeterinario && cancelable && cita.status === "PENDING";
   // Iniciar la atencion: desde la hora de la cita. Con mascota lleva a la historia clinica.
   const completable = conAcciones && esVistaDelVeterinario && esCompletable(cita);
@@ -265,6 +273,13 @@ function CitaTarjeta({ cita, perspectiva = "cliente", onActualizada }) {
           {MODALIDADES[cita.mode]}
         </p>
 
+        {pago && (
+          <p className="texto-suave">
+            {formatoPesos(pago.amount)} · {ESTADOS_PAGO[pago.status]}
+            {pago.reference ? ` · Ref. ${pago.reference}` : ""}
+          </p>
+        )}
+
         {cita.pet && (
           <p className="texto-suave">
             <IconoEspecie especie={cita.pet.species} tamano={16} /> {cita.pet.name} ({cita.pet.species})
@@ -281,6 +296,13 @@ function CitaTarjeta({ cita, perspectiva = "cliente", onActualizada }) {
             <Icono nombre="ubicacion" tamano={15} grosor={2} />
             {direccion}
           </p>
+        )}
+        {/* Domicilio: el veterinario traza la ruta desde donde esta. Consultorio: el dueño ve donde queda. */}
+        {esVistaDelVeterinario && cita.mode === "HOME" && cita.address && !["CANCELLED", "COMPLETED"].includes(cita.status) && (
+          <MapaUbicacion direccion={cita.address} modo="ruta" mostrarMapa={false} />
+        )}
+        {!esVistaDelVeterinario && cita.mode === "CLINIC" && cita.vet?.address && !["CANCELLED", "COMPLETED"].includes(cita.status) && (
+          <MapaUbicacion direccion={cita.vet.address} mostrarMapa={false} />
         )}
         {esVistaDelVeterinario && cita.client?.email && (
           <p className="texto-suave dato-icono">
@@ -340,6 +362,19 @@ function CitaTarjeta({ cita, perspectiva = "cliente", onActualizada }) {
             <Icono nombre="check" tamano={14} grosor={2.6} />
             Registrada en la historia clínica.
           </p>
+        )}
+
+        {panel === null && pagable && (
+          <div className="cita-acciones">
+            <button
+              type="button"
+              className="boton boton-primario boton-auto"
+              disabled={procesando}
+              onClick={() => ejecutar(() => pagarCita(cita.id))}
+            >
+              Pagar {formatoPesos(pago.amount)} (simulado)
+            </button>
+          </div>
         )}
 
         {panel === null && calificable && (

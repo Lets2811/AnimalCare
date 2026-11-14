@@ -80,6 +80,9 @@ async function forgotPassword(req, res) {
     const email = String(req.body?.email ?? "").trim().toLowerCase();
     if (email === "") return badRequest(res, ["El correo es obligatorio."]);
 
+    // Cada pedido cuenta (exista o no el correo): evita llenar un buzon de correos de recuperacion.
+    req.rateLimit?.fail();
+
     const user = await authService.findUserByEmail(email);
     if (user && !isBlocked(user.status) && user.status !== "DELETED") {
       const token = await emitirToken(user.id, "PASSWORD_RESET", RESET_TTL_MIN * 60 * 1000);
