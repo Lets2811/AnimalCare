@@ -6,6 +6,12 @@ export async function listarMascotas() {
   return respuesta.data; // { pets, species }
 }
 
+// GET /api/pets/reminders: proximas vacunas y controles de mis mascotas.
+export async function obtenerRecordatorios() {
+  const respuesta = await api.get("/pets/reminders");
+  return respuesta.data; // { vaccines, followUps }
+}
+
 export async function registrarMascota(mascota) {
   const respuesta = await api.post("/pets", mascota);
   return respuesta.data;

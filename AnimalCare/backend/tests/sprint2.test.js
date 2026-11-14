@@ -2485,6 +2485,66 @@ describe("Auditoria de accesos a la historia clinica (Ley 1581)", () => {
   });
 });
 
+describe("Directorio de pacientes del veterinario", () => {
+  test("lista las mascotas que atiende, con dueño, visitas y filtro por nombre", async () => {
+    const r = await http("GET", "/vets/me/patients", { token: ctx.vet });
+    assert.equal(r.status, 200, errores(r));
+    const nube = r.data.patients.find((p) => p.id === ctx.nube.id);
+    assert.ok(nube, "Nube fue atendida por este veterinario");
+    assert.equal(nube.owner, "Cliente clienteA QA");
+    assert.equal(nube.breed, "Criollo");
+    assert.ok(nube.visits >= 2);
+    assert.match(nube.lastVisit, /^\d{4}-\d{2}-\d{2}$/);
+    assert.equal(r.data.total, r.data.patients.length);
+
+    const porMascota = await http("GET", "/vets/me/patients?q=nub", { token: ctx.vet });
+    assert.deepEqual(porMascota.data.patients.map((p) => p.name), ["Nube"]);
+    const porDueño = await http("GET", `/vets/me/patients?q=${encodeURIComponent("clienteA")}`, { token: ctx.vet });
+    assert.ok(porDueño.data.patients.length >= 2, "busca tambien por nombre del dueño");
+    assert.equal((await http("GET", "/vets/me/patients?q=zzzzzz", { token: ctx.vet })).data.total, 0);
+  });
+
+  test("un veterinario no ve los pacientes de otro, y un cliente no entra", async () => {
+    const vet2 = await tokenDe(ctx.emails.vet2);
+    const r = await http("GET", "/vets/me/patients", { token: vet2 });
+    assert.ok(!r.data.patients.some((p) => p.id === ctx.nube.id), "Nube no es paciente del segundo veterinario");
+    assert.equal((await http("GET", "/vets/me/patients", { token: ctx.clienteA })).status, 403);
+    assert.equal((await http("GET", "/vets/me/patients")).status, 401);
+  });
+});
+
+describe("Recordatorios de vacunas y controles del dueño", () => {
+  test("el dueño ve las proximas dosis y controles de sus mascotas", async () => {
+    const r = await http("GET", "/pets/reminders", { token: ctx.clienteA });
+    assert.equal(r.status, 200, errores(r));
+    const vacuna = r.data.vaccines.find((v) => v.petId === ctx.nube.id);
+    assert.ok(vacuna, "la vacuna de Nube esta proxima");
+    assert.equal(vacuna.name, "Rabia");
+    assert.equal(vacuna.dueDate, enDias(3));
+    assert.equal(vacuna.overdue, false);
+    const control = r.data.followUps.find((c) => c.petId === ctx.nube.id);
+    assert.equal(control.date, enDias(2));
+    assert.equal(control.vet, NOMBRE_VET);
+  });
+
+  test("solo cuenta la ultima aplicacion: una dosis posterior reemplaza el recordatorio anterior", async () => {
+    const cita = await citaEnCurso(ctx.nube.id);
+    const nueva = await http("POST", "/medical-records", {
+      token: ctx.vet,
+      body: { petId: ctx.nube.id, appointmentId: cita.id, reason: "Refuerzo", diagnosis: "Sano", vaccinations: [{ name: "rabia", nextDueAt: enDias(300) }] },
+    });
+    assert.equal(nueva.status, 201, errores(nueva));
+    const r = await http("GET", "/pets/reminders", { token: ctx.clienteA });
+    assert.ok(!r.data.vaccines.some((v) => v.petId === ctx.nube.id), "la nueva dosis queda fuera del horizonte de 60 dias y la anterior ya no cuenta");
+  });
+
+  test("otro dueño no ve nada ajeno; un veterinario no usa este endpoint", async () => {
+    const b = await http("GET", "/pets/reminders", { token: ctx.clienteB });
+    assert.deepEqual({ v: b.data.vaccines.length, c: b.data.followUps.length }, { v: 0, c: 0 });
+    assert.equal((await http("GET", "/pets/reminders", { token: ctx.vet })).status, 403);
+  });
+});
+
 describe("Datos personales: exportar y version de la politica (habeas data)", () => {
   test("el titular descarga todos sus datos en JSON y queda registrado", async () => {
     const r = await fetch(`${API}/account/export`, { headers: { Authorization: `Bearer ${ctx.clienteA}` } });

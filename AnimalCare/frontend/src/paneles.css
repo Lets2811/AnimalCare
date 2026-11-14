@@ -1750,3 +1750,21 @@
   margin: 4px 0 0;
   padding-left: 18px;
 }
+
+/* ---------- Recordatorios de salud en el panel ---------- */
+
+.resumen-recordatorios {
+  margin: 8px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.resumen-recordatorios li {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--borde);
+  font-size: 0.92rem;
+}
+
+.recordatorio-atrasado {
+  color: var(--error-texto);
+}

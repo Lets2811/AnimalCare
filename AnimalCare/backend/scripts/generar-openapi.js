@@ -32,6 +32,7 @@ const ENDPOINTS = [
   ["get", "/account/export", "Cuenta", "Descarga todos mis datos personales en JSON (derecho de acceso, Ley 1581); queda en el registro de auditoría", TODOS, null],
 
   ["get", "/pets", "Mascotas", "Mascotas del dueño", [CLIENTE], null],
+  ["get", "/pets/reminders", "Mascotas", "Próximas vacunas y controles de seguimiento de mis mascotas (60 días; incluye atrasados de 30)", [CLIENTE], null],
   ["post", "/pets", "Mascotas", "Registra una mascota con su ficha básica", [CLIENTE], { name: "string", species: "string", sex: "string", birthDate: "AAAA-MM-DD", weight: "number?", breed: "string?", color: "string?", microchip: "string? (9-15 dígitos, único)", sterilized: "boolean?", allergies: "string?" }],
   ["put", "/pets/{id}", "Mascotas", "Modifica una mascota propia (la ficha solo cambia si se envía)", [CLIENTE], { name: "string", species: "string", sex: "string", birthDate: "AAAA-MM-DD", weight: "number?", breed: "string?", color: "string?", microchip: "string?", sterilized: "boolean?", allergies: "string?" }],
   ["delete", "/pets/{id}", "Mascotas", "Retira una mascota (queda inactiva, se conserva la historia)", [CLIENTE], null],
@@ -41,6 +42,7 @@ const ENDPOINTS = [
   ["get", "/vets/{id}/slots", "Veterinarios", "Horarios libres de un día (date, mode, serviceId)", TODOS, null],
   ["get", "/vets/{id}/days", "Veterinarios", "Próximos 14 días con la cantidad de horarios libres", TODOS, null],
 
+  ["get", "/vets/me/patients", "Panel del veterinario", "Directorio de pacientes: mascotas que atiendo, con dueño, visitas y próxima cita (filtro q)", [VET], null],
   ["get", "/vets/me/profile", "Panel del veterinario", "Mi perfil profesional", [VET], null],
   ["put", "/vets/me/profile", "Panel del veterinario", "Actualiza mi perfil (bio, especialidad, teléfono, dirección, modalidades)", [VET], { specialty: "string", bio: "string?", phone: "string?", address: "string?", homeService: "boolean", clinicService: "boolean" }],
   ["put", "/vets/me/photo", "Panel del veterinario", "Sube mi foto de perfil (data URL JPG/PNG)", [VET], { file: "data URL" }],

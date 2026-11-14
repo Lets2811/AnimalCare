@@ -3,6 +3,12 @@ import api from "./api";
 
 // ---------- Servicios ----------
 
+// GET /api/vets/me/patients?q=  (directorio de pacientes)
+export async function listarPacientes(q = "") {
+  const respuesta = await api.get("/vets/me/patients", { params: q ? { q } : {} });
+  return respuesta.data.patients;
+}
+
 export async function listarMisServicios() {
   const respuesta = await api.get("/vets/me/services");
   return respuesta.data; // { visible, services }

@@ -90,6 +90,11 @@ function Cabecera() {
                 <NavLink to="/mis-servicios" className="cabecera-enlace">
                   Mis servicios
                 </NavLink>
+                {!pendiente && (
+                  <NavLink to="/pacientes" end className="cabecera-enlace">
+                    Pacientes
+                  </NavLink>
+                )}
                 <NavLink to="/mi-horario" className="cabecera-enlace">
                   Mi horario
                 </NavLink>

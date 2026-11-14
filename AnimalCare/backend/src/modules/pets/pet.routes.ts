@@ -10,6 +10,7 @@ const router = express.Router();
 router.use(authenticate, requireRole("CLIENT"));
 
 router.get("/", pets.listMyPets);
+router.get("/reminders", pets.listReminders); // proximas vacunas y controles
 router.post("/", pets.createPet);
 router.put("/:id", pets.updatePet);
 router.delete("/:id", pets.deactivatePet);

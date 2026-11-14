@@ -11,7 +11,7 @@ import { toPublicService } from "../vet.service";
 import { toPublicAppointment } from "../../appointments/appointment.service";
 import { validateServiceInput } from "../../../utils/serviceValidation";
 import { parseId } from "../../../utils/params";
-import { parseDate, parseTime, toTimeString, atMinutes, addDays } from "../../../utils/schedule";
+import { parseDate, parseTime, toTimeString, atMinutes, addDays, toDateString, describeDateTime } from "../../../utils/schedule";
 import * as uploads from "../../../utils/uploads";
 import prisma from "../../../prisma";
 
@@ -462,4 +462,67 @@ async function uploadMyLicenseDoc(req: Request, res: Response) {
   }
 }
 
-export { getMyProfile, updateMyProfile, uploadMyPhoto, deleteMyPhoto, uploadMyLicenseDoc, listMyServices, addService, updateService, removeService, getMyAvailability, updateMyAvailability, listMyBlocks, addBlock, removeBlock };
+// GET /api/vets/me/patients?q=
+// Directorio de pacientes: las mascotas que el veterinario atiende o atendio (por una cita no cancelada o
+// una urgencia que acepto), con su dueño, ultima visita, cuantas veces las vio y su proxima cita.
+async function listPatients(req: Request, res: Response) {
+  try {
+    const vetId = vetProfileId(req);
+    const q = typeof req.query.q === "string" ? req.query.q.trim().toLowerCase() : "";
+    const ahora = new Date();
+
+    const [citas, urgencias] = await Promise.all([
+      prisma.appointment.findMany({
+        where: { vetProfileId: vetId, petId: { not: null }, status: { not: "CANCELLED" } },
+        select: { petId: true, scheduledAt: true, status: true },
+      }),
+      prisma.emergencyRequest.findMany({
+        where: { vetProfileId: vetId, petId: { not: null }, status: { in: ["ACCEPTED", "COMPLETED"] } },
+        select: { petId: true },
+      }),
+    ]);
+
+    const resumen = new Map<number, { visitas: number; ultima: Date | null; proxima: Date | null }>();
+    const fila = (petId: number) => {
+      if (!resumen.has(petId)) resumen.set(petId, { visitas: 0, ultima: null, proxima: null });
+      return resumen.get(petId)!;
+    };
+    for (const c of citas) {
+      const f = fila(c.petId!);
+      if (c.status === "COMPLETED" || c.status === "IN_PROGRESS") {
+        f.visitas += 1;
+        if (!f.ultima || c.scheduledAt > f.ultima) f.ultima = c.scheduledAt;
+      } else if (c.scheduledAt > ahora && (!f.proxima || c.scheduledAt < f.proxima)) {
+        f.proxima = c.scheduledAt;
+      }
+    }
+    for (const u of urgencias) fila(u.petId!);
+
+    const mascotas = await prisma.pet.findMany({
+      where: { id: { in: [...resumen.keys()] }, status: "ACTIVE", user: { status: "ACTIVE" } },
+      include: { user: { select: { name: true } } },
+      orderBy: { name: "asc" },
+    });
+    const pacientes = mascotas
+      .filter((m) => q === "" || m.name.toLowerCase().includes(q) || m.user.name.toLowerCase().includes(q))
+      .map((m) => {
+        const f = resumen.get(m.id)!;
+        return {
+          id: m.id,
+          name: m.name,
+          species: m.species,
+          breed: m.breed,
+          allergies: m.allergies,
+          owner: m.user.name,
+          visits: f.visitas,
+          lastVisit: f.ultima ? toDateString(f.ultima) : null,
+          nextAppointment: f.proxima ? describeDateTime(f.proxima) : null,
+        };
+      });
+    return res.status(200).json({ total: pacientes.length, patients: pacientes });
+  } catch (error) {
+    return serverError(res, "listPatients", error);
+  }
+}
+
+export { listPatients, getMyProfile, updateMyProfile, uploadMyPhoto, deleteMyPhoto, uploadMyLicenseDoc, listMyServices, addService, updateService, removeService, getMyAvailability, updateMyAvailability, listMyBlocks, addBlock, removeBlock };

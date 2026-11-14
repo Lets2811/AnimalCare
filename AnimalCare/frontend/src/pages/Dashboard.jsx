@@ -11,6 +11,7 @@ import Icono from "../components/Icono";
 import { primerNombreDe } from "../utils/nombres";
 import { listarUsuarios } from "../services/admin.service";
 import { obtenerUsuario, actualizarUsuario, esVeterinarioPendiente } from "../services/auth.service";
+import RecordatoriosClinicos from "../components/RecordatoriosClinicos";
 import { listarMisCitas, esCancelable, ESTADOS_CITA } from "../services/appointment.service";
 import { listarMascotas, calcularEdad } from "../services/pet.service";
 import { MODALIDADES } from "../services/vet.service";
@@ -437,6 +438,7 @@ function Dashboard() {
             <Notificaciones />
 
             {!esVeterinario && <MisMascotasResumen />}
+            {!esVeterinario && <RecordatoriosClinicos />}
 
             {/* Resumen del perfil profesional del veterinario */}
             {esVeterinario && usuario?.vetProfile && (

@@ -16,6 +16,7 @@ const MisServicios = lazy(() => import("./pages/MisServicios"));
 const MiHorario = lazy(() => import("./pages/MiHorario"));
 const AdminUsuarios = lazy(() => import("./pages/AdminUsuarios"));
 const AdminMetricas = lazy(() => import("./pages/AdminMetricas"));
+const Pacientes = lazy(() => import("./pages/Pacientes"));
 const AdminAuditoria = lazy(() => import("./pages/AdminAuditoria"));
 const NotificacionesPagina = lazy(() => import("./pages/NotificacionesPagina"));
 const MisMascotas = lazy(() => import("./pages/MisMascotas"));
@@ -119,6 +120,14 @@ function App() {
           element={
             <RutaPrivada roles={["CLIENT"]}>
               <HistoriaClinica />
+            </RutaPrivada>
+          }
+        />
+        <Route
+          path="/pacientes"
+          element={
+            <RutaPrivada roles={["VETERINARIAN"]}>
+              <Pacientes />
             </RutaPrivada>
           }
         />

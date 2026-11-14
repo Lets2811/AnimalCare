@@ -20,6 +20,9 @@ router.post("/services", panel.addService);
 router.put("/services/:serviceId", panel.updateService);
 router.delete("/services/:serviceId", panel.removeService);
 
+// Directorio de pacientes
+router.get("/patients", panel.listPatients);
+
 // AN-31
 router.get("/availability", panel.getMyAvailability);
 router.put("/availability", panel.updateMyAvailability);

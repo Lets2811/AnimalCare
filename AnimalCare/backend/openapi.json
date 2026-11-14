@@ -646,6 +646,40 @@
         }
       }
     },
+    "/pets/reminders": {
+      "get": {
+        "tags": [
+          "Mascotas"
+        ],
+        "summary": "Próximas vacunas y controles de seguimiento de mis mascotas (60 días; incluye atrasados de 30)",
+        "description": "Roles: CLIENT.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
     "/pets/{id}": {
       "put": {
         "tags": [
@@ -926,6 +960,40 @@
             "schema": {
               "type": "integer"
             }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/vets/me/patients": {
+      "get": {
+        "tags": [
+          "Panel del veterinario"
+        ],
+        "summary": "Directorio de pacientes: mascotas que atiendo, con dueño, visitas y próxima cita (filtro q)",
+        "description": "Roles: VETERINARIAN.",
+        "security": [
+          {
+            "bearerAuth": []
           }
         ],
         "responses": {

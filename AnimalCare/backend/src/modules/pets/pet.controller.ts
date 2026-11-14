@@ -5,7 +5,7 @@ import type { Request, Response } from "express";
 // El dueño se toma SIEMPRE del token.
 import prisma from "../../prisma";
 import { parseId } from "../../utils/params";
-import { parseDate, toDateString } from "../../utils/schedule";
+import { parseDate, toDateString, startOfDay } from "../../utils/schedule";
 import { esErrorPrisma } from "../../utils/errores";
 
 const ESPECIES = ["Perro", "Gato", "Ave", "Conejo", "Roedor", "Reptil", "Otro"];
@@ -131,6 +131,56 @@ async function listMyPets(req: Request, res: Response) {
   }
 }
 
+// GET /api/pets/reminders
+// Proximas vacunas y controles de seguimiento de mis mascotas (proximos 60 dias, y los atrasados de los ultimos 30).
+async function listReminders(req: Request, res: Response) {
+  try {
+    const hoy = startOfDay();
+    const desde = new Date(hoy.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const hasta = new Date(hoy.getTime() + 60 * 24 * 60 * 60 * 1000);
+
+    const vacunas = await prisma.vaccination.findMany({
+      where: { pet: { userId: req.user.id, status: "ACTIVE" } },
+      include: { pet: { select: { id: true, name: true } } },
+      orderBy: [{ appliedAt: "desc" }, { id: "desc" }],
+    });
+    // Solo cuenta la ultima aplicacion de cada vacuna de cada mascota: una dosis posterior cancela el recordatorio de la anterior.
+    const ultimas = new Map<string, (typeof vacunas)[number]>();
+    for (const v of vacunas) {
+      const clave = `${v.petId}|${v.name.trim().toLowerCase()}`;
+      if (!ultimas.has(clave)) ultimas.set(clave, v);
+    }
+    const proximasVacunas = [...ultimas.values()]
+      .filter((v) => v.nextDueAt && v.nextDueAt >= desde && v.nextDueAt <= hasta)
+      .sort((a, b) => a.nextDueAt!.getTime() - b.nextDueAt!.getTime())
+      .map((v) => ({
+        petId: v.pet.id,
+        petName: v.pet.name,
+        name: v.name,
+        dueDate: toDateString(v.nextDueAt!),
+        overdue: v.nextDueAt! < hoy,
+      }));
+
+    const controles = await prisma.medicalRecord.findMany({
+      where: { status: "ACTIVE", followUpDate: { gte: desde, lte: hasta }, pet: { userId: req.user.id, status: "ACTIVE" } },
+      include: { pet: { select: { id: true, name: true } }, vetProfile: { include: { user: { select: { name: true } } } } },
+      orderBy: { followUpDate: "asc" },
+    });
+    return res.status(200).json({
+      vaccines: proximasVacunas,
+      followUps: controles.map((c) => ({
+        petId: c.pet.id,
+        petName: c.pet.name,
+        date: toDateString(c.followUpDate!),
+        vet: c.vetProfile.user.name,
+        overdue: c.followUpDate! < hoy,
+      })),
+    });
+  } catch (error) {
+    return serverError(res, "listReminders", error);
+  }
+}
+
 // POST /api/pets
 async function createPet(req: Request, res: Response) {
   try {
@@ -181,4 +231,4 @@ async function deactivatePet(req: Request, res: Response) {
   }
 }
 
-export { listMyPets, createPet, updatePet, deactivatePet, findOwnActivePet, toPublicPet };
+export { listReminders, listMyPets, createPet, updatePet, deactivatePet, findOwnActivePet, toPublicPet };
