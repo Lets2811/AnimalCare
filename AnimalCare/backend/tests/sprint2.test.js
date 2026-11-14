@@ -21,7 +21,7 @@ const bcrypt = require("bcrypt");
 
 const prisma = require("../src/prisma").default;
 const uploads = require("../src/utils/uploads");
-const { runReminders } = require("../src/services/reminder.service");
+const { runReminders } = require("../src/modules/appointments/reminder.service");
 const { toDateString, localWeekday, toTimeOfDay, parseTime } = require("../src/utils/schedule");
 
 // Con TEST_IN_PROCESS=1 (npm run coverage) la API arranca dentro del propio proceso de la prueba,

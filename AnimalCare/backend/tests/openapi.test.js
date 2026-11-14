@@ -13,17 +13,17 @@ const RAIZ = path.join(__dirname, "..");
 function rutasReales() {
   const app = fs.readFileSync(path.join(RAIZ, "src/app.ts"), "utf8");
   const archivoDe = Object.fromEntries(
-    [...app.matchAll(/import (\w+) from "\.\/routes\/([\w.]+)";/g)].map((m) => [m[1], m[2]])
+    [...app.matchAll(/import (\w+) from "\.\/(modules\/[\w./]+\.routes)";/g)].map((m) => [m[1], m[2]])
   );
   const prefijos = {};
   for (const m of app.matchAll(/app\.use\("(\/api[^"]*)", (\w+)\);/g)) prefijos[archivoDe[m[2]]] = m[1];
   // El panel del veterinario se monta dentro de vet.routes.js.
-  prefijos["vetPanel.routes"] = "/api/vets/me";
+  prefijos["modules/vets/panel/vetPanel.routes"] = "/api/vets/me";
 
   const rutas = new Set();
   for (const [archivo, prefijo] of Object.entries(prefijos)) {
-    if (archivo === "docs.routes") continue; // la propia documentacion no se documenta
-    const texto = fs.readFileSync(path.join(RAIZ, "src/routes", `${archivo}.ts`), "utf8");
+    if (archivo === "modules/system/docs.routes") continue; // la propia documentacion no se documenta
+    const texto = fs.readFileSync(path.join(RAIZ, "src", `${archivo}.ts`), "utf8");
     for (const m of texto.matchAll(/router\.(get|post|put|patch|delete)\("([^"]*)"/g)) {
       const ruta = `${prefijo}${m[2] === "/" ? "" : m[2]}`.replace(/^\/api/, "").replace(/:(\w+)/g, "{$1}");
       rutas.add(`${m[1]} ${ruta === "" ? "/" : ruta}`);

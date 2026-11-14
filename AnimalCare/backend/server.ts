@@ -2,7 +2,7 @@ import dotenv from "dotenv";
 dotenv.config();
 
 import app from "./src/app";
-import { startReminderJob } from "./src/services/reminder.service";
+import { startReminderJob } from "./src/modules/appointments/reminder.service";
 
 // Sin la clave secreta no es posible firmar ni verificar tokens.
 // Es preferible fallar al arrancar que devolver errores confusos despues.

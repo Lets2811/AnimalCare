@@ -6,17 +6,17 @@ import cors from "cors";
 import { PHOTOS_DIR } from "./utils/uploads";
 import { securityHeaders } from "./middleware/security.middleware";
 
-import healthRoutes from "./routes/health.routes";
-import authRoutes from "./routes/auth.routes";
-import vetRoutes from "./routes/vet.routes";
-import appointmentRoutes from "./routes/appointment.routes";
-import notificationRoutes from "./routes/notification.routes";
-import adminRoutes from "./routes/admin.routes";
-import petRoutes from "./routes/pet.routes";
-import medicalRecordRoutes from "./routes/medicalRecord.routes";
-import accountRoutes from "./routes/account.routes";
-import emergencyRoutes from "./routes/emergency.routes";
-import docsRoutes from "./routes/docs.routes";
+import healthRoutes from "./modules/system/health.routes";
+import authRoutes from "./modules/auth/auth.routes";
+import vetRoutes from "./modules/vets/vet.routes";
+import appointmentRoutes from "./modules/appointments/appointment.routes";
+import notificationRoutes from "./modules/notifications/notification.routes";
+import adminRoutes from "./modules/admin/admin.routes";
+import petRoutes from "./modules/pets/pet.routes";
+import medicalRecordRoutes from "./modules/records/medicalRecord.routes";
+import accountRoutes from "./modules/account/account.routes";
+import emergencyRoutes from "./modules/emergencies/emergency.routes";
+import docsRoutes from "./modules/system/docs.routes";
 
 const app = express();
 
