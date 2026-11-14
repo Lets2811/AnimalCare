@@ -1,3 +1,4 @@
+import { telefonoValido } from "../../utils/telefono";
 import type { PerfilNuevoVeterinario } from "./auth.service";
 import { esErrorPrisma } from "../../utils/errores";
 import type { Request, Response } from "express";
@@ -172,7 +173,7 @@ function validateVetProfile(body: any) {
   }
 
   const phone = optionalText(body.phone);
-  if (phone && !/^[0-9+\s-]{7,15}$/.test(phone)) {
+  if (phone && !telefonoValido(phone)) {
     errors.push("El telefono no tiene un formato valido.");
   } else {
     values.phone = phone;
@@ -420,4 +421,4 @@ function me(req: Request, res: Response) {
   return res.status(200).json({ user: req.user });
 }
 
-export { register, login, me };
+export { validateRegisterData, validateServices, validateVetProfile, register, login, me };

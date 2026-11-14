@@ -33,6 +33,7 @@
     "create-admin": "tsx scripts/create-admin.ts",
     "seed": "tsx scripts/seed-demo.ts",
     "retencion": "tsx scripts/retencion.ts",
+    "huerfanos": "tsx scripts/huerfanos.ts",
     "coverage": "node scripts/coverage.js",
     "matriz": "tsx scripts/generar-matriz.js",
     "openapi": "tsx scripts/generar-openapi.js",

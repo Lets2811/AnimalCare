@@ -26,6 +26,9 @@ const resultado = spawnSync(
     "--test-reporter-destination=coverage/lcov.info",
     "tests/schedule.test.js",
     "tests/openapi.test.js",
+    "tests/unit/validadores.test.js",
+    "tests/unit/infraestructura.test.js",
+    "tests/unit/servicios.test.js",
     "tests/sprint2.test.js",
   ],
   { stdio: "inherit", env: { ...process.env, TEST_IN_PROCESS: "1", REMINDERS_ENABLED: "false", MAIL_TRANSPORT: "console" } }

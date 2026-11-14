@@ -231,4 +231,4 @@ async function deactivatePet(req: Request, res: Response) {
   }
 }
 
-export { listReminders, listMyPets, createPet, updatePet, deactivatePet, findOwnActivePet, toPublicPet };
+export { validatePet, listReminders, listMyPets, createPet, updatePet, deactivatePet, findOwnActivePet, toPublicPet };

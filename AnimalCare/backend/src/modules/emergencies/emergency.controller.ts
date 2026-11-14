@@ -1,3 +1,4 @@
+import { telefonoValido } from "../../utils/telefono";
 import type { AppointmentStatus, CareMode, EmergencyStatus, Prisma } from "@prisma/client";
 import type { Request, Response } from "express";
 // Urgencias (lo que AN-23 llamaba "emergencias").
@@ -206,7 +207,7 @@ async function createEmergency(req: Request, res: Response) {
     if (!MODES.includes(modo as CareMode)) errors.push("Elige si la atención es en la veterinaria o a domicilio.");
     if (modo === "HOME" && direccion === "") errors.push("Indica la dirección a la que debe ir el veterinario.");
     if (direccion.length > 150) errors.push("La dirección no puede superar los 150 caracteres.");
-    if (!/^[0-9+\s-]{7,15}$/.test(telefono)) errors.push("Escribe un teléfono de contacto válido.");
+    if (!telefonoValido(telefono)) errors.push("Escribe un teléfono de contacto válido.");
     if (errors.length > 0) return badRequest(res, errors);
 
     // La mascota es obligatoria: la urgencia se atiende como una cita y se registra en su historia clinica.

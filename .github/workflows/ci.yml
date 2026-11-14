@@ -48,8 +48,8 @@ jobs:
         run: |
           npm run typecheck
           npm run build
-      - name: Pruebas unitarias (zona horaria y OpenAPI)
-        run: node --import tsx --test tests/schedule.test.js tests/openapi.test.js
+      - name: Pruebas unitarias (validadores, utilidades, servicios, zona horaria y OpenAPI)
+        run: node --import tsx --test tests/schedule.test.js tests/openapi.test.js "tests/unit/*.test.js"
       - name: Levantar la API
         run: |
           PORT=4000 MAIL_OUTBOX_FILE=$RUNNER_TEMP/outbox.jsonl node dist/server.js > $RUNNER_TEMP/api.log 2>&1 &

@@ -803,4 +803,4 @@ async function listAccesses(req: Request, res: Response) {
   }
 }
 
-export { downloadPrescriptionPdf, listAccesses, downloadHistoryPdf, getPetHistory, createRecord, updateRecord, annulRecord, addAttachment, downloadAttachment, removeAttachment };
+export { validateRecord, toPublicRecord, validarVacunas, validarRecetas, downloadPrescriptionPdf, listAccesses, downloadHistoryPdf, getPetHistory, createRecord, updateRecord, annulRecord, addAttachment, downloadAttachment, removeAttachment };

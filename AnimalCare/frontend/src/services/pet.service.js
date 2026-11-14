@@ -28,7 +28,6 @@ export async function desactivarMascota(id) {
 }
 
 export const ESPECIES = ["Perro", "Gato", "Ave", "Conejo", "Roedor", "Reptil", "Otro"];
-export const ICONO_ESPECIE = { Perro: "🐶", Gato: "🐱", Ave: "🐦", Conejo: "🐰", Roedor: "🐹", Reptil: "🦎", Otro: "🐾" };
 
 // "3 años", "8 meses" a partir de "AAAA-MM-DD".
 export function calcularEdad(fechaNacimiento) {

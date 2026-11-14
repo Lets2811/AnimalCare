@@ -1,3 +1,4 @@
+import { telefonoValido } from "../../../utils/telefono";
 import type { Request, Response } from "express";
 // Panel del veterinario: lo que el profesional gestiona de su propio perfil.
 //
@@ -381,7 +382,7 @@ async function updateMyProfile(req: Request, res: Response) {
     const bio = textoOpcional(body.bio);
     if (bio && bio.length > 500) errors.push("La presentación no puede superar los 500 caracteres.");
     const phone = textoOpcional(body.phone);
-    if (phone && !/^[0-9+\s-]{7,15}$/.test(phone)) errors.push("El teléfono no tiene un formato válido.");
+    if (phone && !telefonoValido(phone)) errors.push("El teléfono no tiene un formato válido.");
 
     const homeService = body.homeService === true;
     const clinicService = body.clinicService === true;
@@ -525,4 +526,4 @@ async function listPatients(req: Request, res: Response) {
   }
 }
 
-export { listPatients, getMyProfile, updateMyProfile, uploadMyPhoto, deleteMyPhoto, uploadMyLicenseDoc, listMyServices, addService, updateService, removeService, getMyAvailability, updateMyAvailability, listMyBlocks, addBlock, removeBlock };
+export { validateAvailabilities, listPatients, getMyProfile, updateMyProfile, uploadMyPhoto, deleteMyPhoto, uploadMyLicenseDoc, listMyServices, addService, updateService, removeService, getMyAvailability, updateMyAvailability, listMyBlocks, addBlock, removeBlock };

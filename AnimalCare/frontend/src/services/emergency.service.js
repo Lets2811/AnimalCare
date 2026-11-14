@@ -84,5 +84,9 @@ export function horaLocal(fecha) {
 export const MIN_SINTOMAS = 10;
 export const MAX_SINTOMAS = 500;
 export function telefonoValido(texto) {
-  return /^[0-9+\s-]{7,15}$/.test(texto.trim());
+  // 7 a 15 digitos; se permiten +, espacios y guiones ("+57 300 123 4567"). Igual que el backend.
+  const valor = texto.trim();
+  if (valor.length > 25 || !/^[0-9+\s-]+$/.test(valor)) return false;
+  const digitos = valor.replace(/\D/g, "").length;
+  return digitos >= 7 && digitos <= 15;
 }

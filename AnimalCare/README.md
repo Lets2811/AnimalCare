@@ -326,6 +326,7 @@ animalcare/
 | [docs/DECISIONES-TECNICAS.md](docs/DECISIONES-TECNICAS.md) | Decisiones de arquitectura, lo que se aplazo y por que |
 | [docs/cumplimiento-normativo.md](docs/cumplimiento-normativo.md) | Ley 1581, Ley 576, Ley 527: que hace el sistema y que falta |
 | [docs/matriz-trazabilidad.md](docs/matriz-trazabilidad.md) | Historia de usuario, criterios y pruebas (se genera con `npm run matriz`) |
+| [docs/EVALUACION-DE-PROCESOS.md](docs/EVALUACION-DE-PROCESOS.md) | Pruebas y mejoras propuestas por proceso |
 | [docs/criterios-aceptacion-sprint3.md](docs/criterios-aceptacion-sprint3.md) | Criterios de aceptacion en formato Dado/Cuando/Entonces |
 | `http://localhost:4000/api/docs` | Swagger UI de la API (con el backend corriendo) |
 
