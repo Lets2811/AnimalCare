@@ -216,10 +216,11 @@ momento.
 
 | Capa          | Tecnologia                                  |
 | ------------- | ------------------------------------------- |
-| Frontend      | React, Vite, JavaScript, React Router, Axios, CSS |
-| Backend       | Node.js, Express, JavaScript, Prisma ORM, JWT, bcrypt |
-| Base de datos | MySQL                                       |
-| Herramientas  | Git, GitHub, Postman                        |
+| Frontend      | React 19, Vite, JavaScript, React Router, Axios, CSS |
+| Backend       | Node.js 22, Express 5, **TypeScript (estricto)**, Prisma ORM, JWT, bcrypt, pdfkit |
+| Base de datos | MySQL 8                                     |
+| Pruebas       | node:test (API), Vitest + Testing Library, Playwright + axe |
+| Herramientas  | Git, GitHub Actions, Docker, tsx           |
 
 ## Arquitectura
 
@@ -243,16 +244,22 @@ MySQL
 ## Modelo de datos
 
 ```
-User (id, name, email, password, role)
+User (nombre, correo, rol, estado, version de la politica aceptada)
  |
  |-- 1:1 --> VetProfile (matricula, especialidad, modalidades, direccion)
- |              |-- 1:N --> Service       (nombre, precio, duracion)
- |              |-- 1:N --> Availability  (dia de la semana, hora inicio, hora fin)
- |              |-- 1:N --> Appointment
+ |              |-- 1:N --> Service, Availability (horario semanal), ScheduleBlock (bloqueos)
+ |              |-- 1:N --> Appointment, MedicalRecord, Vaccination
  |
- |-- 1:N --> Appointment (modalidad, fecha y hora, duracion, estado)
+ |-- 1:N --> Pet (ficha: raza, color, microchip, esterilizacion, alergias)
+ |              |-- 1:N --> MedicalRecord (una por cita)
+ |              |              |-- 1:N --> Vaccination (con proxima dosis), Prescription (receta)
+ |              |              |-- 1:N --> MedicalAttachment (examenes, privados)
+ |              |-- 1:N --> Appointment, EmergencyRequest
  |
- |-- 1:N --> Pet (preparado para el siguiente sprint)
+ |-- 1:N --> Appointment (estado PENDING, CONFIRMED, IN_PROGRESS, COMPLETED, CANCELLED; pago simulado)
+ |-- 1:N --> Notification, Review, AuthToken
+ |
+AuditLog (quien consulto o cambio datos sensibles; sin llaves foraneas: sobrevive a la cuenta)
 ```
 
 ## Reglas de la agenda
@@ -263,51 +270,77 @@ User (id, name, email, password, role)
 - Un horario deja de ofrecerse si se cruza con una cita en estado `PENDING` o `CONFIRMED`.
   Una cita cancelada libera el horario.
 - No se pueden agendar horarios que ya pasaron, ni con mas de **60 dias** de anticipacion.
-- **Todas las fechas y horas se manejan en UTC.** El frontend envia y recibe siempre `AAAA-MM-DD`
-  y `HH:MM`, de modo que la hora que elige el cliente es exactamente la que se guarda.
+- **Las fechas y horas son de la clinica (America/Bogota).** El frontend envia y recibe siempre `AAAA-MM-DD`
+  y `HH:MM`; la base guarda instantes (UTC) y la conversion se hace en `utils/schedule` (ver "Zona horaria").
 
 ## Requisitos
 
-- Node.js 18 o superior
+- Node.js 22 o superior (el backend se ejecuta con `tsx` y se compila con `tsc`)
 - npm
 - MySQL 8
 - Git
+- Docker (opcional, para `docker compose`)
 
 ## Estructura
 
 ```
 animalcare/
 ├── backend/
-│   ├── prisma/
-│   │   ├── migrations/
-│   │   └── schema.prisma
+│   ├── prisma/                 (schema.prisma y migraciones)
 │   ├── src/
-│   │   ├── controllers/  (auth, health, vet, appointment)
-│   │   ├── middleware/   (auth, role)
-│   │   ├── routes/       (auth, health, vet, appointment)
-│   │   ├── services/     (auth, vet, appointment)
-│   │   ├── utils/        (schedule, params)
-│   │   ├── app.js
-│   │   └── prisma.js
-│   ├── .env            (ignorado por Git)
-│   ├── .env.example
-│   ├── package.json
-│   └── server.js
+│   │   ├── modules/            un directorio por dominio: controller + service + routes
+│   │   │   ├── auth/  account/  pets/  vets/ (+ panel/)  appointments/ (+ recordatorios)
+│   │   │   ├── emergencies/  records/ (historias, PDF)  notifications/ (+ correo)
+│   │   │   ├── audit/          registro de auditoria (Ley 1581)
+│   │   │   ├── admin/          usuarios, metricas, auditoria
+│   │   │   └── system/         health y documentacion (Swagger)
+│   │   ├── middleware/         auth, roles, seguridad (limites de intentos, cabeceras)
+│   │   ├── utils/              schedule (zona horaria), uploads, errores, params, privacidad...
+│   │   ├── app.ts  prisma.ts
+│   ├── scripts/                seed-demo, create-admin, clean-test-data, retencion (.ts);
+│   │                           coverage, generar-matriz, generar-openapi (.js)
+│   ├── tests/                  node:test (API en proceso o contra un servidor, OpenAPI, zona horaria)
+│   ├── types/                  extensiones de tipos de Express
+│   ├── server.ts  tsconfig.json  tsconfig.build.json  openapi.json  Dockerfile
 ├── frontend/
 │   ├── src/
-│   │   ├── components/   (Alerta, AuthLayout, Cabecera, Carrusel, CitaTarjeta, Huella, RutaPrivada)
-│   │   ├── pages/        (Login, Register, Dashboard, Veterinarios, VeterinarioDetalle,
-│   │   │                  AgendarCita, MisCitas)
-│   │   ├── services/     (api.js, auth.service.js, vet.service.js, appointment.service.js)
-│   │   ├── App.jsx       (rutas)
-│   │   ├── index.css     (estilos base)
-│   │   ├── paneles.css   (pantallas privadas)
-│   │   └── auth.css      (pantallas de autenticacion)
-│   └── package.json
-├── docs/
-├── .gitignore
+│   │   ├── components/         (CitaTarjeta, UrgenciaCliente/Veterinario, AgendaSemanal, MapaUbicacion,
+│   │   │                        RecordatoriosClinicos, historia/ ...)
+│   │   ├── pages/              una por pantalla (Dashboard, MisCitas, HistoriaClinica, Pacientes,
+│   │   │                        AdminMetricas, AdminAuditoria ...)
+│   │   ├── services/           llamadas a la API y reglas (api.js, appointment.service.js ...)
+│   │   └── *.css  App.jsx
+│   ├── e2e/                    Playwright: cliente, veterinario, urgencias, clinico y accesibilidad
+│   └── vitest.config.js
+├── docs/                       criterios de aceptacion, matriz de trazabilidad, cumplimiento normativo,
+│                               decisiones tecnicas y guia de cambios
+├── docker-compose.yml  .github/workflows (CI)
 └── README.md
 ```
+
+## Documentacion
+
+| Documento | Para que sirve |
+|---|---|
+| [docs/GUIA-CAMBIOS-Y-PRUEBAS.md](docs/GUIA-CAMBIOS-Y-PRUEBAS.md) | Que cambio y como ensayarlo paso a paso |
+| [docs/DECISIONES-TECNICAS.md](docs/DECISIONES-TECNICAS.md) | Decisiones de arquitectura, lo que se aplazo y por que |
+| [docs/cumplimiento-normativo.md](docs/cumplimiento-normativo.md) | Ley 1581, Ley 576, Ley 527: que hace el sistema y que falta |
+| [docs/matriz-trazabilidad.md](docs/matriz-trazabilidad.md) | Historia de usuario, criterios y pruebas (se genera con `npm run matriz`) |
+| [docs/criterios-aceptacion-sprint3.md](docs/criterios-aceptacion-sprint3.md) | Criterios de aceptacion en formato Dado/Cuando/Entonces |
+| `http://localhost:4000/api/docs` | Swagger UI de la API (con el backend corriendo) |
+
+## Comandos del backend
+
+| Comando | Que hace |
+|---|---|
+| `npm run dev` | API en desarrollo con recarga (`tsx watch server.ts`) |
+| `npm run typecheck` | Comprueba los tipos (TypeScript estricto) sin compilar |
+| `npm run build` / `npm start` | Compila a `dist/` y ejecuta la version compilada |
+| `npm test` | Pruebas de la API contra un servidor corriendo |
+| `npm run coverage` | Pruebas con la API en el mismo proceso y cobertura |
+| `npm run seed` | Datos de demostracion |
+| `npm run retencion` | Politica de retencion de datos (simula; `-- --aplicar` borra) |
+| `npm run openapi` / `npm run matriz` | Regenera `openapi.json` / la matriz de trazabilidad |
 
 ## Variables de entorno
 

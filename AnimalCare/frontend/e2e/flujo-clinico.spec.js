@@ -1,6 +1,7 @@
 // Flujo clinico de extremo a extremo: el veterinario registra una consulta con vacuna (proxima dosis), receta y
 // control de seguimiento; el dueño ve el carnet, la receta, descarga los PDF, ve quien consulto la historia y
 // exporta sus datos; el administrador ve todo en la auditoria.
+import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
 import { cerrarBase, crearAdmin, crearCitaEnCurso, crearCliente, crearVeterinario, entrar, fechaBogota, http } from "./ayudas.js";
@@ -47,6 +48,11 @@ test("el veterinario registra vacuna, receta y control en la consulta", async ({
   await page.getByLabel("Dosis", { exact: true }).fill("10 mg");
   await page.getByLabel("Frecuencia").fill("cada 24 horas");
   await page.getByLabel("Próximo control sugerido").fill(enDias(10));
+
+  // El formulario con los editores abiertos tampoco debe tener problemas graves de accesibilidad.
+  const accesibilidad = await new AxeBuilder({ page }).withTags(["wcag2a", "wcag2aa"]).analyze();
+  const graves = accesibilidad.violations.filter((v) => ["serious", "critical"].includes(v.impact));
+  expect(graves.map((v) => `${v.id}: ${v.nodes[0].target.join(" ")}`)).toEqual([]);
 
   await page.getByRole("button", { name: "Guardar y terminar atención" }).click();
   await expect(page).toHaveURL(/\/citas$/);

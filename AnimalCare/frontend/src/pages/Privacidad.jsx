@@ -56,6 +56,11 @@ function Privacidad() {
             domicilio) y con el dueño cuyo animal atiendes (tu perfil público). No vendemos ni cedemos datos a
             terceros. La tarjeta profesional solo la ve el administrador.
           </p>
+          <p>
+            Los mapas usan Google Maps: al abrir un mapa o una ruta, la dirección que se muestra (la del consultorio o
+            la de la visita a domicilio) se envía a Google para ubicarla, y se rige por la política de Google. AnimalCare
+            no envía a Google tu nombre ni los datos de tu mascota.
+          </p>
 
           <h3>5. Tus derechos (Ley 1581 de 2012)</h3>
           <p>

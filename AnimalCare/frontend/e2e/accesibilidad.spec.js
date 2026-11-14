@@ -58,12 +58,12 @@ test("dueño de mascota", async ({ page }, info) => {
 
 test("veterinario", async ({ page }, info) => {
   await entrar(page, vet.email);
-  for (const ruta of ["/dashboard", "/citas", "/mi-horario", "/mis-servicios", "/mi-perfil", "/urgencias"]) {
+  for (const ruta of ["/dashboard", "/citas", "/mi-horario", "/mis-servicios", "/mi-perfil", "/urgencias", "/pacientes"]) {
     await revisar(page, ruta, info);
   }
 });
 
 test("administrador", async ({ page }, info) => {
   await entrar(page, admin.email);
-  await revisar(page, "/admin/usuarios", info);
+  for (const ruta of ["/admin/usuarios", "/admin/metricas", "/admin/auditoria"]) await revisar(page, ruta, info);
 });
