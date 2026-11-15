@@ -29,7 +29,7 @@ services:
     environment:
       DATABASE_URL: "mysql://root:rootpassword@db:3306/animalcare"
       PORT: 4000
-      JWT_SECRET: "cambia_esta_clave_antes_de_publicar"
+      JWT_SECRET: "${JWT_SECRET:?Define JWT_SECRET en tu entorno o en un archivo .env (minimo 32 caracteres)}"
       JWT_EXPIRES_IN: "2h"
       CLINIC_TIMEZONE: "America/Bogota"
       # El frontend se sirve en 8080 y nginx reenvia /api al backend.

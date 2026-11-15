@@ -14,8 +14,9 @@ import { isBlocked } from "../../utils/accountStatus";
 const FRONTEND_URL = (process.env.FRONTEND_URL || "http://localhost:5173").replace(/\/$/, "");
 const RESET_TTL_MIN = 60;
 const VERIFY_TTL_HOURS = 48;
-const MIN_PASSWORD_LENGTH = 6;
-const MENSAJE_CONTRASENA = "La contraseña debe tener mínimo 6 caracteres y contener al menos un número";
+import { contrasenaValida, MENSAJE_CONTRASENA } from "../../utils/contrasena";
+import { SALT_ROUNDS } from "../auth/auth.service";
+import { ponerCookieDeSesion } from "../../utils/sesion";
 const MAX_NAME_LENGTH = 60;
 
 function serverError(res: Response, where: any, error: unknown) {
@@ -25,11 +26,6 @@ function serverError(res: Response, where: any, error: unknown) {
 
 function badRequest(res: Response, errors: string[]) {
   return res.status(400).json({ message: "Los datos enviados no son validos.", errors });
-}
-
-function contrasenaValida(password: any) {
-  const texto = String(password ?? "");
-  return texto.length >= MIN_PASSWORD_LENGTH && /\d/.test(texto);
 }
 
 function hashToken(token: string) {
@@ -121,10 +117,12 @@ async function resetPassword(req: Request, res: Response) {
     await prisma.$transaction([
       prisma.user.update({
         where: { id: registro.userId },
-        data: { password: await bcrypt.hash(String(password), 10) },
+        // Subir tokenVersion cierra las sesiones abiertas con la clave anterior.
+        data: { password: await bcrypt.hash(String(password), SALT_ROUNDS), tokenVersion: { increment: 1 } },
       }),
       prisma.authToken.update({ where: { id: registro.id }, data: { usedAt: new Date() } }),
     ]);
+    await auditar(req, ACCIONES.RESTABLECER_CLAVE, { entityType: "User", entityId: registro.userId, ownerId: registro.userId });
     return res.status(200).json({ message: "Contraseña actualizada. Ya puedes iniciar sesión." });
   } catch (error) {
     return serverError(res, "resetPassword", error);
@@ -203,8 +201,12 @@ async function changePassword(req: Request, res: Response) {
     }
     await prisma.user.update({
       where: { id: user!.id },
-      data: { password: await bcrypt.hash(String(newPassword), 10) },
+      data: { password: await bcrypt.hash(String(newPassword), SALT_ROUNDS), tokenVersion: { increment: 1 } },
     });
+    await auditar(req, ACCIONES.CAMBIAR_CLAVE, { entityType: "User", entityId: user!.id, ownerId: user!.id });
+    // Esta sesion sigue valida: se le entrega una cookie nueva con la version actual.
+    const actualizado = await prisma.user.findUnique({ where: { id: user!.id } });
+    ponerCookieDeSesion(req, res, authService.generateToken(actualizado));
     return res.status(200).json({ message: "Contraseña cambiada correctamente." });
   } catch (error) {
     return serverError(res, "changePassword", error);

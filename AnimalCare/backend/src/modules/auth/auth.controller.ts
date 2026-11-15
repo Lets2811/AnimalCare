@@ -1,4 +1,5 @@
 import { telefonoValido } from "../../utils/telefono";
+import { ponerCookieDeSesion, borrarCookieDeSesion, vencimientoDelToken } from "../../utils/sesion";
 import type { PerfilNuevoVeterinario } from "./auth.service";
 import { esErrorPrisma } from "../../utils/errores";
 import type { Request, Response } from "express";
@@ -8,14 +9,14 @@ import type { Request, Response } from "express";
 // Cubre las historias AN-6 (registro de cliente), AN-7 (registro de veterinario)
 // y AN-8 (inicio de sesion).
 import * as authService from "./auth.service";
+import prisma from "../../prisma";
+import { auditar, ACCIONES } from "../audit/audit.service";
 import { isBlocked, blockedResponse } from "../../utils/accountStatus";
 import { enviarVerificacion } from "../account/account.controller";
 import { MIN_DURATION_MINUTES as MIN_SERVICE_DURATION,
   MAX_DURATION_MINUTES as MAX_SERVICE_DURATION, } from "../../utils/schedule";
 
-const MIN_PASSWORD_LENGTH = 6;
-const MENSAJE_CONTRASENA =
-  "La contraseña debe tener mínimo 6 caracteres y contener al menos un número";
+import { contrasenaValida, MENSAJE_CONTRASENA } from "../../utils/contrasena";
 const MAX_PHOTO_URL_LENGTH = 500;
 const MAX_NAME_LENGTH = 60;
 const MAX_LICENSE_LENGTH = 10;
@@ -226,7 +227,7 @@ function validateRegisterData({ name, email, password }: { name: unknown; email:
 
   if (!password || String(password).trim() === "") {
     errors.push("La contrasena es obligatoria.");
-  } else if (String(password).length < MIN_PASSWORD_LENGTH || !/\d/.test(String(password))) {
+  } else if (!contrasenaValida(password)) {
     errors.push(MENSAJE_CONTRASENA);
   }
 
@@ -382,13 +383,16 @@ async function login(req: Request, res: Response) {
     // Se responde lo mismo si el correo no existe o si la contrasena es incorrecta,
     // para no revelar que correos estan registrados en el sistema.
     if (!user) {
+      await authService.gastarTiempoDeHash(String(password));
       req.rateLimit?.fail();
+      await auditar(req, ACCIONES.FALLO_INICIO_SESION);
       return res.status(401).json({ message: MENSAJE_CREDENCIALES });
     }
 
     const passwordMatches = await authService.verifyPassword(String(password), user.password);
     if (!passwordMatches) {
       req.rateLimit?.fail();
+      await auditar(req, ACCIONES.FALLO_INICIO_SESION, { ownerId: user.id });
       return res.status(401).json({ message: MENSAJE_CREDENCIALES });
     }
     req.rateLimit?.reset();
@@ -402,11 +406,18 @@ async function login(req: Request, res: Response) {
       return blockedResponse(res, user.status);
     }
 
+    await authService.rehashSiHaceFalta(user.id, String(password), user.password);
+    await auditar(req, ACCIONES.INICIO_SESION, { ownerId: user.id });
+
     const token = authService.generateToken(user);
+    // El navegador guarda la sesion en una cookie HttpOnly; el token en el cuerpo es para
+    // clientes que no son navegador (scripts, pruebas) y el frontend no lo almacena.
+    ponerCookieDeSesion(req, res, token);
 
     return res.status(200).json({
       message: "Inicio de sesion correcto.",
       token,
+      expiresAt: vencimientoDelToken(token),
       user: authService.toPublicUser(user),
     });
   } catch (error) {
@@ -421,4 +432,25 @@ function me(req: Request, res: Response) {
   return res.status(200).json({ user: req.user });
 }
 
-export { validateRegisterData, validateServices, validateVetProfile, register, login, me };
+// POST /api/auth/logout: borra la cookie de sesion. Es publica para poder limpiar
+// una cookie vencida.
+function logout(req: Request, res: Response) {
+  borrarCookieDeSesion(req, res);
+  return res.status(200).json({ message: "Sesion cerrada." });
+}
+
+// POST /api/auth/logout-all  (ruta privada)
+// Invalida todas las sesiones abiertas de la persona (otros dispositivos incluidos).
+async function logoutAll(req: Request, res: Response) {
+  try {
+    await prisma.user.update({ where: { id: req.user.id }, data: { tokenVersion: { increment: 1 } } });
+    await auditar(req, ACCIONES.CERRAR_TODAS, { entityType: "User", entityId: req.user.id, ownerId: req.user.id });
+    borrarCookieDeSesion(req, res);
+    return res.status(200).json({ message: "Se cerraron todas tus sesiones." });
+  } catch (error) {
+    console.error("Error en logout-all:", error);
+    return res.status(500).json({ message: "Ocurrio un error inesperado en el servidor." });
+  }
+}
+
+export { validateRegisterData, validateServices, validateVetProfile, register, login, logout, logoutAll, me };

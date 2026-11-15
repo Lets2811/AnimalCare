@@ -6,8 +6,14 @@ import jwt from "jsonwebtoken";
 import prisma from "../../prisma";
 
 // Numero de rondas de bcrypt. A mayor numero, mas lento y mas seguro.
-// 10 es el valor recomendado habitual.
-const SALT_ROUNDS = 10;
+// 12 es el valor recomendado hoy; las claves guardadas con menos rondas se actualizan
+// solas al iniciar sesion (ver rehashSiHaceFalta).
+export const SALT_ROUNDS = 12;
+
+// Datos fijos del JWT: se verifican al leerlo, asi un token de otro sistema no sirve.
+export const JWT_ALGORITMO = "HS256";
+export const JWT_EMISOR = "animalcare";
+export const JWT_AUDIENCIA = "animalcare-web";
 
 // Horario que se carga automaticamente al registrar un veterinario:
 // de lunes a viernes, manana y tarde. Asi el profesional queda disponible
@@ -107,12 +113,32 @@ async function verifyPassword(plainPassword: any, hashedPassword: any) {
 
 // Genera el JWT. El payload solo lleva el id del usuario:
 // es el dato que el backend usara para saber de quien son las mascotas y las citas.
+// tv (tokenVersion) permite invalidar todas las sesiones de una persona de una vez.
 function generateToken(user: any) {
   return jwt.sign(
-    { userId: user.id },
+    { userId: user.id, tv: user.tokenVersion ?? 0 },
     process.env.JWT_SECRET as string,
-    { expiresIn: (process.env.JWT_EXPIRES_IN || "2h") as jwt.SignOptions["expiresIn"] }
+    {
+      algorithm: JWT_ALGORITMO,
+      issuer: JWT_EMISOR,
+      audience: JWT_AUDIENCIA,
+      expiresIn: (process.env.JWT_EXPIRES_IN || "2h") as jwt.SignOptions["expiresIn"],
+    }
   );
+}
+
+// Compara contra un hash falso cuando el correo no existe, para que responder
+// "no existe" tarde lo mismo que responder "clave incorrecta" (evita enumerar correos).
+let hashFalso: string | null = null;
+async function gastarTiempoDeHash(clave: string) {
+  hashFalso ??= await bcrypt.hash("clave-falsa-para-igualar-tiempos", SALT_ROUNDS);
+  await bcrypt.compare(clave, hashFalso);
+}
+
+// Si la clave se guardo con menos rondas que las actuales, se vuelve a guardar mejor.
+async function rehashSiHaceFalta(userId: number, clave: string, hashActual: string) {
+  if (bcrypt.getRounds(hashActual) >= SALT_ROUNDS) return;
+  await prisma.user.update({ where: { id: userId }, data: { password: await bcrypt.hash(clave, SALT_ROUNDS) } });
 }
 
 // Devuelve los datos del usuario que SI pueden enviarse al frontend.
@@ -145,4 +171,4 @@ function toPublicUser(user: any) {
   return publicUser;
 }
 
-export { findUserByEmail, findVetProfileByLicense, createUser, verifyPassword, generateToken, toPublicUser, DEFAULT_AVAILABILITY };
+export { findUserByEmail, findVetProfileByLicense, createUser, verifyPassword, generateToken, gastarTiempoDeHash, rehashSiHaceFalta, toPublicUser, DEFAULT_AVAILABILITY };

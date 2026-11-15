@@ -16,6 +16,11 @@ export const ACCIONES = {
   EDITAR_ENTRADA: "UPDATE_RECORD",
   ANULAR_ENTRADA: "ANNUL_RECORD",
   EXPORTAR_DATOS: "EXPORT_DATA",
+  INICIO_SESION: "LOGIN",
+  FALLO_INICIO_SESION: "LOGIN_FAILED",
+  CAMBIAR_CLAVE: "PASSWORD_CHANGED",
+  RESTABLECER_CLAVE: "PASSWORD_RESET",
+  CERRAR_TODAS: "LOGOUT_ALL",
 } as const;
 
 export type AccionAuditoria = (typeof ACCIONES)[keyof typeof ACCIONES];
@@ -33,7 +38,7 @@ export async function auditar(req: Request, action: AccionAuditoria, datos: Dato
     await prisma.auditLog.create({
       data: {
         action,
-        actorId: req.user?.id ?? null,
+        actorId: req.user?.id ?? datos.ownerId ?? null,
         actorName: req.user?.name ?? null,
         actorRole: req.user?.role ?? null,
         ip: req.ip ?? null,
@@ -55,4 +60,9 @@ export const ETIQUETAS_ACCION: Record<string, string> = {
   UPDATE_RECORD: "Modificó una consulta",
   ANNUL_RECORD: "Eliminó una consulta",
   EXPORT_DATA: "Exportó datos personales",
+  LOGIN: "Inició sesión",
+  LOGIN_FAILED: "Intento de inicio de sesión fallido",
+  PASSWORD_CHANGED: "Cambió su contraseña",
+  PASSWORD_RESET: "Restableció su contraseña",
+  LOGOUT_ALL: "Cerró todas sus sesiones",
 };

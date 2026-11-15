@@ -61,7 +61,7 @@ function RestablecerContrasena() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Mínimo 6 caracteres y un número"
+              placeholder="Mínimo 8 caracteres, con letra y número"
               autoComplete="new-password"
             />
           </div>

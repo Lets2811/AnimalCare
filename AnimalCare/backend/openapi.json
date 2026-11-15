@@ -67,7 +67,7 @@
                   },
                   "password": {
                     "type": "string",
-                    "description": "string (mín. 6, con un número)"
+                    "description": "string (8 a 72 caracteres, con letra y número)"
                   },
                   "acceptPrivacy": {
                     "type": "string",
@@ -111,7 +111,7 @@
         "tags": [
           "Autenticación"
         ],
-        "summary": "Inicia sesión y devuelve un JWT (5 fallos por IP y correo = 429)",
+        "summary": "Inicia sesión: deja la sesión en una cookie HttpOnly y devuelve el JWT para clientes que no son navegador (5 fallos por IP y correo = 429)",
         "security": [],
         "requestBody": {
           "required": true,
@@ -276,6 +276,63 @@
           "Autenticación"
         ],
         "summary": "Datos de la sesión actual",
+        "description": "Roles: CLIENT, VETERINARIAN, ADMIN.",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "401": {
+            "description": "Sin sesión o sesión vencida"
+          },
+          "403": {
+            "description": "Rol sin permiso o cuenta bloqueada"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/auth/logout": {
+      "post": {
+        "tags": [
+          "Autenticación"
+        ],
+        "summary": "Cierra la sesión: borra la cookie",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Correcto"
+          },
+          "400": {
+            "description": "Datos no válidos (errors: lista de mensajes)"
+          },
+          "404": {
+            "description": "No existe o no es tuyo"
+          },
+          "409": {
+            "description": "Conflicto con el estado actual"
+          }
+        }
+      }
+    },
+    "/auth/logout-all": {
+      "post": {
+        "tags": [
+          "Autenticación"
+        ],
+        "summary": "Cierra todas las sesiones abiertas (invalida los tokens anteriores)",
         "description": "Roles: CLIENT, VETERINARIAN, ADMIN.",
         "security": [
           {

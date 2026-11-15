@@ -8,25 +8,32 @@ import jwt from "jsonwebtoken";
 
 import prisma from "../prisma";
 import { isBlocked, blockedResponse } from "../utils/accountStatus";
+import { tokenDeLaPeticion, origenPermitido } from "../utils/sesion";
+import { JWT_ALGORITMO, JWT_EMISOR, JWT_AUDIENCIA } from "../modules/auth/auth.service";
 
 async function authenticate(req: Request, res: Response, next: NextFunction) {
   try {
-    const authHeader = req.headers.authorization || "";
-
-    // Se espera el formato: Authorization: Bearer <token>
-    if (!authHeader.startsWith("Bearer ")) {
+    // El token llega por la cookie HttpOnly (navegador) o por Authorization: Bearer <token>.
+    const entrada = tokenDeLaPeticion(req);
+    if (!entrada) {
       return res.status(401).json({ message: "No autorizado. Debes iniciar sesion." });
     }
+    const { token, porCookie } = entrada;
 
-    const token = authHeader.substring(7).trim();
-    if (token === "") {
-      return res.status(401).json({ message: "No autorizado. Debes iniciar sesion." });
+    // CSRF: con cookie, una peticion que cambia datos debe venir de un origen autorizado.
+    if (porCookie && !["GET", "HEAD", "OPTIONS"].includes(req.method) && !origenPermitido(req)) {
+      return res.status(403).json({ message: "Origen no autorizado." });
     }
 
     // Verifica la firma y la expiracion del token.
     let payload;
     try {
-      payload = jwt.verify(token, process.env.JWT_SECRET as string) as { userId: number };
+      // Algoritmo, emisor y audiencia fijos: rechaza tokens con otra firma o de otro sistema.
+      payload = jwt.verify(token, process.env.JWT_SECRET as string, {
+        algorithms: [JWT_ALGORITMO],
+        issuer: JWT_EMISOR,
+        audience: JWT_AUDIENCIA,
+      }) as { userId: number; tv?: number };
     } catch (error) {
       // Token invalido, manipulado o expirado.
       return res.status(401).json({ message: "Sesion invalida o expirada. Inicia sesion nuevamente." });
@@ -45,6 +52,7 @@ async function authenticate(req: Request, res: Response, next: NextFunction) {
         privacyAcceptedAt: true,
         privacyVersion: true,
         createdAt: true,
+        tokenVersion: true,
         // El perfil profesional solo existe si la cuenta es de un veterinario.
         vetProfile: {
           select: {
@@ -58,7 +66,8 @@ async function authenticate(req: Request, res: Response, next: NextFunction) {
       },
     });
 
-    if (!user) {
+    // Un cambio de clave o "cerrar todas las sesiones" sube tokenVersion y deja sin efecto los tokens anteriores.
+    if (!user || (payload.tv ?? 0) !== user.tokenVersion) {
       return res.status(401).json({ message: "Sesion invalida o expirada. Inicia sesion nuevamente." });
     }
 
@@ -69,7 +78,8 @@ async function authenticate(req: Request, res: Response, next: NextFunction) {
     }
 
     // Queda disponible para los controladores: req.user.id es el propietario.
-    req.user = { ...user, emailVerified: Boolean(user.emailVerifiedAt) };
+    const { tokenVersion: _tv, ...publico } = user;
+    req.user = { ...publico, emailVerified: Boolean(user.emailVerifiedAt) };
     return next();
   } catch (error) {
     console.error("Error en el middleware de autenticacion:", error);

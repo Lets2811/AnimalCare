@@ -16,7 +16,9 @@ function rutasReales() {
     [...app.matchAll(/import (\w+) from "\.\/(modules\/[\w./]+\.routes)";/g)].map((m) => [m[1], m[2]])
   );
   const prefijos = {};
-  for (const m of app.matchAll(/app\.use\("(\/api[^"]*)", (\w+)\);/g)) prefijos[archivoDe[m[2]]] = m[1];
+  for (const m of app.matchAll(/app\.use\("(\/api[^"]*)", (\w+)\);/g)) {
+    if (archivoDe[m[2]]) prefijos[archivoDe[m[2]]] = m[1]; // los middleware (limites) no son rutas
+  }
   // El panel del veterinario se monta dentro de vet.routes.js.
   prefijos["modules/vets/panel/vetPanel.routes"] = "/api/vets/me";
 

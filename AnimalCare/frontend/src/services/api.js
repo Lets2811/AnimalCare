@@ -1,22 +1,15 @@
 // Cliente HTTP compartido por toda la aplicacion.
 import axios from "axios";
 
+// La sesion viaja en una cookie HttpOnly que pone el backend al iniciar sesion:
+// el navegador la envia solo (withCredentials) y el JavaScript no puede leerla.
 const api = axios.create({
   baseURL: import.meta.env.VITE_API_URL || "/api",
-});
-
-// Antes de cada peticion, adjunta el token guardado (si existe).
-// Asi las rutas privadas del backend reciben: Authorization: Bearer <token>
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("token");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
+  withCredentials: true,
 });
 
 function cerrarSesionPorError(mensaje) {
-  localStorage.removeItem("token");
+  localStorage.removeItem("sesionExpira");
   localStorage.removeItem("usuario");
   sessionStorage.setItem("avisoSesion", mensaje);
   if (window.location.pathname !== "/login") window.location.assign("/login");
@@ -38,7 +31,7 @@ api.interceptors.response.use(
 
     // Token vencido o invalido (dura 2 horas): se vuelve al login con un aviso en vez de
     // dejar la pantalla con errores 401 en silencio. Solo si habia una sesion guardada.
-    if (!esLogin && error.response?.status === 401 && localStorage.getItem("token")) {
+    if (!esLogin && error.response?.status === 401 && localStorage.getItem("usuario")) {
       cerrarSesionPorError("Tu sesión expiró. Inicia sesión de nuevo para continuar.");
     }
 

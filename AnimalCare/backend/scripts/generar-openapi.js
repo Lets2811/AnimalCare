@@ -18,12 +18,14 @@ const ENDPOINTS = [
   ["get", "/health", "Sistema", "Estado de la API y de la base de datos", null, null],
 
   ["post", "/auth/register", "Autenticación", "Registra un cliente o un veterinario (acepta la política de privacidad)", null,
-    { name: "string", email: "string", password: "string (mín. 6, con un número)", acceptPrivacy: "boolean", role: "CLIENT | VETERINARIAN", license: "string (veterinarios)", specialty: "string (veterinarios)" }],
-  ["post", "/auth/login", "Autenticación", "Inicia sesión y devuelve un JWT (5 fallos por IP y correo = 429)", null, { email: "string", password: "string" }],
+    { name: "string", email: "string", password: "string (8 a 72 caracteres, con letra y número)", acceptPrivacy: "boolean", role: "CLIENT | VETERINARIAN", license: "string (veterinarios)", specialty: "string (veterinarios)" }],
+  ["post", "/auth/login", "Autenticación", "Inicia sesión: deja la sesión en una cookie HttpOnly y devuelve el JWT para clientes que no son navegador (5 fallos por IP y correo = 429)", null, { email: "string", password: "string" }],
   ["post", "/auth/forgot-password", "Autenticación", "Envía el enlace para restablecer la contraseña (responde igual exista o no el correo; 5 por hora y correo)", null, { email: "string" }],
   ["post", "/auth/reset-password", "Autenticación", "Cambia la contraseña con el token recibido por correo", null, { token: "string", password: "string" }],
   ["post", "/auth/verify-email", "Autenticación", "Confirma el correo con el token recibido", null, { token: "string" }],
   ["get", "/auth/me", "Autenticación", "Datos de la sesión actual", TODOS, null],
+  ["post", "/auth/logout", "Autenticación", "Cierra la sesión: borra la cookie", null, null],
+  ["post", "/auth/logout-all", "Autenticación", "Cierra todas las sesiones abiertas (invalida los tokens anteriores)", TODOS, null],
 
   ["put", "/account", "Cuenta", "Actualiza el nombre y el correo de la cuenta", TODOS, { name: "string", email: "string" }],
   ["put", "/account/password", "Cuenta", "Cambia la contraseña (pide la actual)", TODOS, { currentPassword: "string", newPassword: "string" }],

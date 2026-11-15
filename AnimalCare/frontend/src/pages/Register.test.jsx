@@ -20,7 +20,7 @@ function pantalla() {
 
 const enviar = () => userEvent.click(screen.getByRole("button", { name: "Crear cuenta" }));
 
-async function llenarCliente({ correo = "ana@correo.co", clave = "Clave123", acepta = true } = {}) {
+async function llenarCliente({ correo = "ana@correo.co", clave = "Clave12345", acepta = true } = {}) {
   await userEvent.type(screen.getByLabelText(/Nombre/), "Ana");
   await userEvent.type(screen.getByLabelText(/Correo electrónico/), correo);
   await userEvent.type(screen.getByLabelText(/^Contraseña/), clave);
@@ -45,7 +45,7 @@ describe("Register (cliente)", () => {
     await llenarCliente({ correo: "no-es-correo", clave: "solotexto" });
     await enviar();
     expect(screen.getByText("El correo no tiene un formato válido.")).toBeInTheDocument();
-    expect(screen.getByText(/mínimo 6 caracteres y contener al menos un número/)).toBeInTheDocument();
+    expect(screen.getByText(/entre 8 y 72 caracteres/)).toBeInTheDocument();
     expect(registrar).not.toHaveBeenCalled();
   });
 
@@ -58,7 +58,7 @@ describe("Register (cliente)", () => {
     expect(registrar).toHaveBeenCalledWith({
       name: "Ana",
       email: "ana@correo.co",
-      password: "Clave123",
+      password: "Clave12345",
       role: "CLIENT",
       acceptPrivacy: true,
     });

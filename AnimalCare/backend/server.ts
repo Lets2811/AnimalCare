@@ -11,6 +11,17 @@ if (!process.env.JWT_SECRET) {
   process.exit(1);
 }
 
+// Una clave corta o de ejemplo se adivina o filtra con facilidad: no se acepta.
+const secreto = process.env.JWT_SECRET;
+if (secreto.length < 32) {
+  console.error("JWT_SECRET debe tener al menos 32 caracteres (por ejemplo, 48 bytes aleatorios en base64).");
+  process.exit(1);
+}
+if (process.env.NODE_ENV === "production" && /cambia_esta_clave|changeme/i.test(secreto)) {
+  console.error("JWT_SECRET sigue siendo la clave de ejemplo. Cambiala antes de publicar.");
+  process.exit(1);
+}
+
 const PORT = process.env.PORT || 4000;
 
 app.listen(PORT, () => {

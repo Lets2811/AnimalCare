@@ -82,6 +82,8 @@ model User {
   privacyVersion    String?
   // Cuando elimino su cuenta.
   deletedAt         DateTime?
+  // Se sube para invalidar todas las sesiones abiertas (cambio de clave, "cerrar todas").
+  tokenVersion      Int       @default(0)
 
   tokens AuthToken[]
 

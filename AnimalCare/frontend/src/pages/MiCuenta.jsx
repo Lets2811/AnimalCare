@@ -11,6 +11,7 @@ import {
   actualizarCuenta,
   cambiarContrasena,
   eliminarCuenta,
+  cerrarTodasLasSesiones,
   exportarMisDatos,
   reenviarVerificacion,
   contrasenaValida,
@@ -75,6 +76,14 @@ function MiCuenta() {
 
   function reenviar() {
     ejecutar("verificacion", async () => setExito([(await reenviarVerificacion()).message]));
+  }
+
+  function cerrarTodas() {
+    ejecutar("sesiones", async () => {
+      const r = await cerrarTodasLasSesiones();
+      cerrarSesion();
+      navigate("/login", { state: { mensaje: r.message } });
+    });
   }
 
   function eliminar(e) {
@@ -170,7 +179,7 @@ function MiCuenta() {
               <label htmlFor="nueva">
                 Nueva contraseña <span className="obligatorio">*</span>
               </label>
-              <input id="nueva" type="password" autoComplete="new-password" placeholder="Mínimo 6 caracteres y un número" value={claves.nueva} onChange={(e) => setClaves({ ...claves, nueva: e.target.value })} />
+              <input id="nueva" type="password" autoComplete="new-password" placeholder="Mínimo 8 caracteres, con letra y número" value={claves.nueva} onChange={(e) => setClaves({ ...claves, nueva: e.target.value })} />
             </div>
             <div className="campo">
               <label htmlFor="confirmacion">
@@ -183,6 +192,17 @@ function MiCuenta() {
             {ocupado === "clave" ? "Guardando..." : "Cambiar contraseña"}
           </button>
         </form>
+
+        <div className="tarjeta">
+          <h3>Sesiones abiertas</h3>
+          <p className="texto-suave">
+            Si usaste un equipo ajeno o sospechas que alguien más entró a tu cuenta, cierra la sesión en todos
+            los dispositivos. Tendrás que iniciar sesión de nuevo.
+          </p>
+          <button type="button" className="boton boton-secundario boton-auto" onClick={cerrarTodas} disabled={ocupado === "sesiones"}>
+            {ocupado === "sesiones" ? "Cerrando..." : "Cerrar todas mis sesiones"}
+          </button>
+        </div>
 
         {!esAdministrador && (
           <div className="tarjeta zona-peligro">

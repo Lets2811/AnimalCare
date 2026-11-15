@@ -19,7 +19,7 @@ on:
 
 env:
   DATABASE_URL: mysql://root:ci_password@127.0.0.1:3306/animalcare_ci
-  JWT_SECRET: clave_solo_para_ci
+  JWT_SECRET: clave_solo_para_ci_con_mas_de_32_caracteres_ok
   CLINIC_TIMEZONE: America/Bogota
   REMINDERS_ENABLED: "false"
   MAIL_TRANSPORT: console

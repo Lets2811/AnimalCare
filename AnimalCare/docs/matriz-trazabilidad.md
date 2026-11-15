@@ -6,10 +6,10 @@
 ## Resumen
 
 - Historias de usuario en el README: **27**
-- Pruebas de API (backend, node:test): **193** casos en 45 grupos
-- Pruebas de interfaz (frontend, vitest): **123** casos en 20 archivos
+- Pruebas de API (backend, node:test): **208** casos en 51 grupos
+- Pruebas de interfaz (frontend, vitest): **156** casos en 23 archivos
 - Pruebas de extremo a extremo (Playwright): ver `frontend/e2e/`
-- Cobertura de líneas: backend **92.0 %** (6367/6921), frontend **34.3 %** (2973/8670)
+- Cobertura de líneas: backend **93.3 %** (6709/7190), frontend **35.2 %** (3054/8666)
 
 ## Historia → criterios → pruebas
 
@@ -17,7 +17,7 @@
 |---|---|---|---|---|---|
 | AN-6 | Registrar usuario para acceder a servicios veterinarios | Listo | — | 3 | — |
 | AN-7 | Registrar veterinario para ofrecer servicios | Listo | — | 4 | — |
-| AN-8 | Iniciar sesion | Listo | — | 4 | 7 |
+| AN-8 | Iniciar sesion | Listo | — | 4 | 8 |
 | AN-10 | Seleccionar modalidad de atencion a domicilio | Listo | — | 6 | 13 |
 | AN-11 | Seleccionar modalidad de atencion en veterinaria | Listo | — | 6 | 13 |
 | AN-12 | Visualizar precios de veterinarios | Implementada | — | 1 | — |
@@ -40,7 +40,7 @@
 | AN-31 | Configurar horario base y bloqueos excepcionales | Implementada | — | 11 | — |
 | AN-32 | Cerrar sesion | Listo | — | — | — |
 | AN-35 | Verificacion de cuentas de veterinarios | Implementada | — | 10 | — |
-| AN-37 | Suspension y bloqueo de cuentas | Implementada | — | 6 | 7 |
+| AN-37 | Suspension y bloqueo de cuentas | Implementada | — | 6 | 8 |
 | AN-38 | Visualizacion y gestion general de usuarios | Implementada | — | 10 | 6 |
 
 > Historias sin pruebas automáticas ligadas por título: AN-32.
@@ -366,6 +366,33 @@
 - las citas ocupadas y los bloqueos se descuentan
 - describeDateTime usa la hora de la clinica
 
+**sesion por cookie HttpOnly** (4)
+- el login deja una cookie HttpOnly con SameSite y vencimiento
+- la cookie autentica sin cabecera Authorization
+- sin cookie ni token responde 401
+- logout borra la cookie (Max-Age=0)
+
+**proteccion CSRF para peticiones con cookie** (2)
+- una peticion que cambia datos desde otro origen es rechazada; desde el origen autorizado pasa
+- con Bearer no aplica la comprobacion de origen (no es un ataque de cookie)
+
+**tokens** (4)
+- rechaza un token firmado con otra clave, sin emisor o con otro algoritmo
+- rechaza un token con algoritmo none
+- logout-all invalida todas las sesiones anteriores
+- cambiar la contrasena cierra las demas sesiones pero conserva la actual
+
+**contrasenas** (1)
+- rechaza cortas, sin numero, sin letra, comunes y de mas de 72 bytes
+
+**cabeceras y sondeo** (3)
+- la API responde sin cache, con CSP restrictiva y sin X-Powered-By
+- CORS permite credenciales solo al origen autorizado
+- el login no revela si el correo existe (mismo mensaje y codigo)
+
+**todas las rutas privadas exigen sesion** (1)
+- cada ruta registrada, salvo las publicas conocidas, responde 401 sin sesion
+
 **Mejora: mascotas del dueño** (7)
 - registra una mascota
 - valida nombre, especie, sexo, fecha y peso
@@ -463,9 +490,12 @@
 | pages/AdminAuditoria.test.jsx | 3 | AN-38 |
 | pages/AdminMetricas.test.jsx | 3 | AN-38 |
 | pages/AgendarCita.test.jsx | 8 | AN-13 |
+| pages/Login.test.jsx | 8 | Transversal |
 | pages/Pacientes.test.jsx | 5 | AN-18, AN-21 |
-| services/api.test.js | 7 | AN-8, AN-37 |
+| pages/Register.test.jsx | 6 | Transversal |
+| services/api.test.js | 8 | AN-8, AN-37 |
 | services/appointment.service.test.js | 4 | AN-14, AN-16 |
+| services/ayudantes.test.js | 18 | Transversal |
 | services/mapas.test.js | 7 | AN-10, AN-11 |
 | services/medicalRecord.service.test.js | 6 | AN-21 |
 | services/zona.test.js | 3 | Transversal |

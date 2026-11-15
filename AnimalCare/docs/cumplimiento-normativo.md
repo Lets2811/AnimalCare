@@ -48,6 +48,8 @@ La receta y la historia se generan en PDF con la fecha, el profesional y su matr
 plataforma; para que una receta tenga el efecto que la regulación sanitaria exija (por ejemplo, medicamentos de venta
 controlada) puede hacer falta **firma electrónica o certificada**, que hoy no se incluye.
 
+**Seguridad técnica (principio de seguridad, art. 4 literal g):** sesión en cookie HttpOnly, tokens revocables, contraseñas con bcrypt y política NIST, límites contra fuerza bruta, cabeceras y auditoría de accesos. Detalle y pruebas en [SEGURIDAD.md](SEGURIDAD.md).
+
 ## 3. Qué datos se guardan y por qué (minimización)
 
 | Dato | Para qué | ¿Obligatorio? |

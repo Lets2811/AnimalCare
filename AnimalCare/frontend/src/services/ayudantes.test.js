@@ -4,10 +4,11 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 
 import { haceCuanto, horaLocal, telefonoValido, ESTADOS_URGENCIA, MIN_SINTOMAS, MAX_SINTOMAS } from "./emergency.service";
 import { contrasenaValida } from "./account.service";
+import api from "./api";
 import { calcularEdad, ESPECIES } from "./pet.service";
 import { formatearPrecio, urlDeFoto, describirTurno, MODALIDADES, DIAS_SEMANA } from "./vet.service";
 import { formatearMomento } from "./notification.service";
-import { esVeterinario, esAdministrador, esVeterinarioPendiente, guardarAvisoDeSesion, tomarAvisoDeSesion, obtenerUsuario, obtenerToken, cerrarSesion } from "./auth.service";
+import { esVeterinario, esAdministrador, esVeterinarioPendiente, guardarAvisoDeSesion, tomarAvisoDeSesion, obtenerUsuario, cerrarSesion } from "./auth.service";
 import { formatoPesos, ESTADOS_PAGO, ESTADOS_CITA, formatearFecha } from "./appointment.service";
 import { leerArchivo } from "./vetPanel.service";
 
@@ -48,11 +49,13 @@ describe("urgencias: tiempos y telefono", () => {
 });
 
 describe("cuentas y mascotas", () => {
-  test("contrasenaValida pide 6 caracteres y un numero", () => {
-    expect(contrasenaValida("abc123")).toBe(true);
-    expect(contrasenaValida("abcdef")).toBe(false);
-    expect(contrasenaValida("a1")).toBe(false);
-    expect(contrasenaValida("123456")).toBe(true);
+  test("contrasenaValida pide 8 a 72 caracteres con letra y numero", () => {
+    expect(contrasenaValida("abcd1234")).toBe(true);
+    expect(contrasenaValida("abc123")).toBe(false); // muy corta
+    expect(contrasenaValida("abcdefgh")).toBe(false); // sin numero
+    expect(contrasenaValida("12345678")).toBe(false); // sin letra
+    expect(contrasenaValida("a1".repeat(40))).toBe(false); // mas de 72
+    expect(contrasenaValida(undefined)).toBe(false);
   });
 
   test("calcularEdad: meses, años y plurales", () => {
@@ -113,11 +116,12 @@ describe("sesion y roles", () => {
     expect(obtenerUsuario()).toBeNull();
   });
 
-  test("cerrarSesion borra token y usuario", () => {
-    localStorage.setItem("token", "abc");
+  test("cerrarSesion borra los datos locales", () => {
+    api.defaults.adapter = async (config) => ({ status: 200, config, headers: {}, statusText: "OK", data: {} });
+    localStorage.setItem("sesionExpira", "1");
     guardar({ role: "CLIENT" });
     cerrarSesion();
-    expect([obtenerToken(), obtenerUsuario()]).toEqual([null, null]);
+    expect([localStorage.getItem("sesionExpira"), obtenerUsuario()]).toEqual([null, null]);
   });
 
   test("el aviso de sesion se muestra una sola vez", () => {

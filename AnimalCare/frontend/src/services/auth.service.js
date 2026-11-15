@@ -10,13 +10,15 @@ export async function registrar(datos) {
 }
 
 // POST /api/auth/login
-// Si las credenciales son correctas, guarda el token y el usuario.
+// Si las credenciales son correctas, el backend deja la sesion en una cookie HttpOnly.
+// Aqui solo se guardan los datos publicos del usuario y cuando vence la sesion;
+// el token NO se guarda en el navegador.
 export async function iniciarSesion({ email, password }) {
   const respuesta = await api.post("/auth/login", { email, password });
-  const { token, user } = respuesta.data;
+  const { user, expiresAt } = respuesta.data;
 
-  localStorage.setItem("token", token);
   localStorage.setItem("usuario", JSON.stringify(user));
+  localStorage.setItem("sesionExpira", String(expiresAt || Date.now() + 2 * 60 * 60 * 1000));
 
   return respuesta.data;
 }
@@ -32,14 +34,12 @@ export async function actualizarUsuario() {
   return user;
 }
 
-// Cierra la sesion borrando los datos guardados en el navegador.
+// Cierra la sesion: borra los datos locales y le pide al backend que elimine la cookie.
 export function cerrarSesion() {
-  localStorage.removeItem("token");
+  localStorage.removeItem("sesionExpira");
   localStorage.removeItem("usuario");
-}
-
-export function obtenerToken() {
-  return localStorage.getItem("token");
+  // Si falla (sin conexion) la cookie vence sola; no debe bloquear la salida.
+  api.post("/auth/logout").catch(() => {});
 }
 
 export function obtenerUsuario() {
@@ -54,24 +54,18 @@ export function obtenerUsuario() {
   }
 }
 
-// Lee la fecha de vencimiento (exp) del JWT sin validar la firma: solo sirve para no
-// mostrar pantallas privadas con un token que el backend ya va a rechazar.
-export function tokenVencido(token, ahora = Date.now()) {
-  try {
-    const carga = token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
-    const { exp } = JSON.parse(atob(carga));
-    return typeof exp === "number" && exp * 1000 <= ahora;
-  } catch {
-    return false; // si no se puede leer, que decida el backend
-  }
+// Solo sirve para no mostrar pantallas privadas con una sesion que el backend ya va a
+// rechazar. La fecha la entrega el backend al iniciar sesion.
+export function sesionVencida(expira, ahora = Date.now()) {
+  const limite = Number(expira);
+  return Number.isFinite(limite) && limite > 0 && limite <= ahora;
 }
 
 export function haySesionActiva() {
-  const token = obtenerToken();
-  if (!token) {
+  if (!obtenerUsuario()) {
     return false;
   }
-  if (tokenVencido(token)) {
+  if (sesionVencida(localStorage.getItem("sesionExpira"))) {
     cerrarSesion();
     guardarAvisoDeSesion("Tu sesión expiró. Inicia sesión de nuevo para continuar.");
     return false;

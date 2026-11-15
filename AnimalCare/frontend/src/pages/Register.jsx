@@ -8,9 +8,7 @@ import Alerta from "../components/Alerta";
 import { registrar } from "../services/auth.service";
 import { obtenerMensajesDeError, obtenerErroresDeCampo } from "../services/api";
 
-const LARGO_MINIMO_CONTRASENA = 6;
-const MENSAJE_CONTRASENA =
-  "La contraseña debe tener mínimo 6 caracteres y contener al menos un número";
+import { contrasenaValida, MENSAJE_CONTRASENA } from "../services/account.service";
 // Matricula: 4 a 10 caracteres. Se permiten letras, numeros y guion (ej. MV-8765);
 // el guion queda pendiente de confirmar en la HU-002.
 const LARGO_MINIMO_MATRICULA = 4;
@@ -135,7 +133,7 @@ function Register() {
     if (datos.password.trim() === "") {
       mensajes.push("La contraseña es obligatoria.");
       porCampo.password = true;
-    } else if (datos.password.length < LARGO_MINIMO_CONTRASENA || !/\d/.test(datos.password)) {
+    } else if (!contrasenaValida(datos.password)) {
       mensajes.push(MENSAJE_CONTRASENA);
       porCampo.password = true;
     }
@@ -351,10 +349,10 @@ function Register() {
             className={erroresCampo.password ? "con-error" : ""}
             value={datos.password}
             onChange={manejarCambio}
-            placeholder="Mínimo 6 caracteres y un número"
+            placeholder="Mínimo 8 caracteres, con letra y número"
             autoComplete="new-password"
           />
-          <span className="ayuda">Mínimo {LARGO_MINIMO_CONTRASENA} caracteres y al menos un número.</span>
+          <span className="ayuda">Mínimo 8 caracteres, con al menos una letra y un número.</span>
         </div>
 
         {/* Bloque profesional: solo aplica al registro de veterinarios (AN-7) */}

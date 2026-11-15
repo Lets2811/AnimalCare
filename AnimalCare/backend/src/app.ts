@@ -2,9 +2,10 @@ import { datosDeError } from "./utils/errores";
 import type { Request, Response, NextFunction } from "express";
 import express from "express";
 import cors from "cors";
+import { origenesAutorizados } from "./utils/sesion";
 
 import { PHOTOS_DIR } from "./utils/uploads";
-import { securityHeaders } from "./middleware/security.middleware";
+import { securityHeaders, generalLimiter } from "./middleware/security.middleware";
 
 import healthRoutes from "./modules/system/health.routes";
 import authRoutes from "./modules/auth/auth.routes";
@@ -23,14 +24,13 @@ const app = express();
 // Si corre detras de un proxy (nginx, Docker), la IP real viene en X-Forwarded-For.
 app.set("trust proxy", process.env.TRUST_PROXY === "true" ? 1 : false);
 
+// No revelar que el servidor es Express.
+app.disable("x-powered-by");
 app.use(securityHeaders);
 
 // Solo los origenes autorizados pueden consumir la API desde el navegador.
 // CORS_ORIGIN admite varios separados por coma. En desarrollo, el frontend de Vite.
-const ORIGENES = (process.env.CORS_ORIGIN || "http://localhost:5173,http://127.0.0.1:5173")
-  .split(",")
-  .map((o) => o.trim())
-  .filter(Boolean);
+const ORIGENES = origenesAutorizados();
 app.use(
   cors({
     origin(origin, callback) {
@@ -38,6 +38,8 @@ app.use(
       if (!origin || ORIGENES.includes(origin)) return callback(null, true);
       return callback(null, false);
     },
+    // Necesario para que el navegador envie y reciba la cookie de sesion.
+    credentials: true,
   })
 );
 
@@ -53,6 +55,7 @@ app.use(express.json());
 app.use("/uploads/photos", express.static(PHOTOS_DIR, { maxAge: "7d", fallthrough: false }));
 
 // Rutas de la API
+app.use("/api", generalLimiter);
 app.use("/api", healthRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/vets", vetRoutes);

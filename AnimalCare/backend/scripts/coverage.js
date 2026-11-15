@@ -29,6 +29,8 @@ const resultado = spawnSync(
     "tests/unit/validadores.test.js",
     "tests/unit/infraestructura.test.js",
     "tests/unit/servicios.test.js",
+    "tests/unit/seguridad.test.js",
+    "tests/seguridad.test.js",
     "tests/sprint2.test.js",
   ],
   { stdio: "inherit", env: { ...process.env, TEST_IN_PROCESS: "1", REMINDERS_ENABLED: "false", MAIL_TRANSPORT: "console" } }

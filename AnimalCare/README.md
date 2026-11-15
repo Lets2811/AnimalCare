@@ -327,6 +327,7 @@ animalcare/
 | [docs/cumplimiento-normativo.md](docs/cumplimiento-normativo.md) | Ley 1581, Ley 576, Ley 527: que hace el sistema y que falta |
 | [docs/matriz-trazabilidad.md](docs/matriz-trazabilidad.md) | Historia de usuario, criterios y pruebas (se genera con `npm run matriz`) |
 | [docs/EVALUACION-DE-PROCESOS.md](docs/EVALUACION-DE-PROCESOS.md) | Pruebas y mejoras propuestas por proceso |
+| [docs/SEGURIDAD.md](docs/SEGURIDAD.md) | Sesiones, tokens, rutas, contraseñas, límites, cabeceras y auditoría |
 | [docs/criterios-aceptacion-sprint3.md](docs/criterios-aceptacion-sprint3.md) | Criterios de aceptacion en formato Dado/Cuando/Entonces |
 | `http://localhost:4000/api/docs` | Swagger UI de la API (con el backend corriendo) |
 
@@ -350,7 +351,7 @@ El backend usa `backend/.env`, que **no se sube al repositorio**. Se parte de `b
 ```
 DATABASE_URL="mysql://root:tu_password@localhost:3306/animalcare"
 PORT=4000
-JWT_SECRET="una_clave_larga_y_secreta"
+JWT_SECRET="una_clave_larga_y_secreta_de_al_menos_32_caracteres"
 JWT_EXPIRES_IN="2h"
 ```
 
@@ -424,7 +425,7 @@ del backend no esta documentada.
 Con Docker (base de datos, API y frontend con nginx en http://localhost:8080):
 
 ```bash
-docker compose up --build
+JWT_SECRET="una_clave_de_al_menos_32_caracteres" docker compose up --build   # PowerShell: $env:JWT_SECRET="..."; docker compose up --build
 ```
 
 La API aplica las migraciones al arrancar (verificado desde una base vacia); las fotos y tarjetas

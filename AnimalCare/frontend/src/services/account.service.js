@@ -49,8 +49,17 @@ export async function eliminarCuenta(password) {
   return respuesta.data;
 }
 
-// Misma politica que el backend.
-export function contrasenaValida(password) {
-  return password.length >= 6 && /\d/.test(password);
+// Cierra la sesion en todos los dispositivos (invalida los tokens anteriores).
+export async function cerrarTodasLasSesiones() {
+  const respuesta = await api.post("/auth/logout-all");
+  return respuesta.data;
 }
-export const MENSAJE_CONTRASENA = "La contraseña debe tener mínimo 6 caracteres y contener al menos un número";
+
+// Misma politica que el backend: 8 a 72 caracteres, con letra y numero.
+// (El backend ademas rechaza las claves muy comunes, como "password123".)
+export function contrasenaValida(password) {
+  const clave = String(password ?? "");
+  return clave.length >= 8 && clave.length <= 72 && /\d/.test(clave) && /\p{L}/u.test(clave);
+}
+export const MENSAJE_CONTRASENA =
+  "La contraseña debe tener entre 8 y 72 caracteres, con al menos una letra y un número, y no ser una clave común";
